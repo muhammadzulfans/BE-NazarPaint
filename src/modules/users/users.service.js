@@ -7,6 +7,7 @@ const getAllUsers = async () => {
             id: true,
             name: true,
             email: true,
+            jabatan: true,
             role: true,
             createdAt: true,
         },
@@ -20,6 +21,7 @@ const getUserById = async (id) => {
             id: true,
             name: true,
             email: true,
+            jabatan: true,
             role: true,
             createdAt: true,
         },
@@ -28,7 +30,7 @@ const getUserById = async (id) => {
     return user;
 };
 
-const createUser = async ({ name, email, password, role }) => {
+const createUser = async ({ name, email, password, jabatan, role }) => {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing)
         throw {
@@ -42,12 +44,14 @@ const createUser = async ({ name, email, password, role }) => {
             name,
             email,
             password: hashed,
-            role: role || 'EMPLOYEE'
+            jabatan,
+            role: role || 'ADMIN'
         },
         select: {
             id: true,
             name: true,
             email: true,
+            jabatan: true,
             role: true
         }
     });
@@ -64,6 +68,7 @@ const updateUser = async (id, data) => {
             id: true,
             name: true,
             email: true,
+            jabatan: true,
             role: true
         }
     });

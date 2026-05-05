@@ -12,7 +12,8 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      String   @default("EMPLOYEE")
+  jabatan   String   @default("MANAGEMENT")
+  role      String   @default("ADMIN")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

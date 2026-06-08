@@ -1,8 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const errorHandler = require('./middleware/error.middleware');
 const authRoute = require('./modules/auth/auth.route');
+const storeRoute = require('./modules/stores/stores.route');
+const productRoute = require('./modules/products/products.route');
+const stockRoute = require('./modules/stocks/stocks.route')
+const saleRoute = require('./modules/sales/sales.route')
+const purchaseRoute = require('./modules/purchases/purchases.route')
+const mutationsRoute = require('./modules/mutations/mutations.route')
 const userRoute = require('./modules/users/users.route');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./docs/swagger');
 
 const app = express();
 
@@ -11,28 +20,35 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Routes
 app.use('/api/auth', authRoute);
-
-// pakai versi API biar rapi
 app.use('/api/users', userRoute);
+app.use('/api/stores', storeRoute);
+app.use('/api/products', productRoute);
+app.use('/api/stocks', stockRoute);
+app.use('/api/sales', saleRoute);
+app.use('/api/purchases', purchaseRoute);
+app.use('/api/mutations', mutationsRoute);
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'NazarPaint API Docs',
+  customCss: '.swagger-ui .topbar { background-color: #EAB308 }' // warna kuning sesuai UI
+}));
+// app.use('/api/users', userRoute); // ← uncomment kalau sudah dibuat
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: `Route ${req.method} ${req.path} tidak ditemukan` });
-});
-
-// Error handler
-app.use((err, _req, res, _next) => {
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
+  res.status(404).json({ 
+    success: false, 
+    message: `Route ${req.method} ${req.path} tidak ditemukan` 
   });
 });
 
+// Error handler — HARUS paling bawah
+app.use(errorHandler);
 
 module.exports = app;

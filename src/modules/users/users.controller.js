@@ -1,41 +1,46 @@
 const userService = require('./users.service');
 
-const getAllUsers = async (req, res, next) => {
-    try {
-        const result = await userService.getAllUsers();
-        res.status(200).json({ success: true, data: result });
-    } catch (err) { next(err); }
+const getAll = async (req, res, next) => {
+  try {
+    const data = await userService.getAll();
+    res.json({ success: true, total: data.length, data });
+  } catch (err) { next(err); }
 };
 
-const getUserById = async (req, res, next) => {
-    try {
-        const result = await userService.getUserById(req.params.id);
-        res.status(200).json({ success: true, data: result });
-    } catch (err) { next(err); }
+const getById = async (req, res, next) => {
+  try {
+    const data = await userService.getById(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
 };
 
-const createUser = async (req, res, next) => {
-    try {
-        const result = await userService.createUser(req.body);
-        res.status(201).json({ success: true, message: 'User berhasil dibuat oleh Admin', data: result });
-    } catch (err) { next(err); }
+const create = async (req, res, next) => {
+  try {
+    const data = await userService.create(req.body);
+    res.status(201).json({ success: true, message: 'Akun berhasil dibuat', data });
+  } catch (err) { next(err); }
 };
 
-const updateUser = async (req, res, next) => {
-    try {
-        const result = await userService.updateUser(req.params.id, req.body);
-        res.status(200).json({ success: true, data: result });
-    } catch (err) { next(err); }
+const update = async (req, res, next) => {
+  try {
+    const data = await userService.update(req.params.id, req.body);
+    res.json({ success: true, message: 'Akun berhasil diupdate', data });
+  } catch (err) { next(err); }
 };
 
-const deleteUser = async (req, res, next) => {
-    try {
-        await userService.deleteUser(req.params.id);
-        res.status(200).json({ success: true, message: 'User berhasil dihapus' });
-    } catch (err) { next(err); }
+const remove = async (req, res, next) => {
+  try {
+    await userService.remove(req.params.id, req.user.userId);
+    res.json({ success: true, message: 'Akun berhasil dihapus' });
+  } catch (err) { next(err); }
 };
 
+// Get profile sendiri
+const getMe = async (req, res, next) => {
+  try {
+    const data = await userService.getById(req.user.userId);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+};
 
-module.exports = { getAllUsers, getUserById, createUser, updateUser, deleteUser };
-
-
+module.exports = { getAll, getById, create, update, remove, getMe };

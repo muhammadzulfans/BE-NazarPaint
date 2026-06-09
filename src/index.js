@@ -21,7 +21,7 @@ const start = async () => {
 
   app.listen(PORT, () => {
     console.log(`🚀 Server running  → http://localhost:${PORT}`);
-    console.log(`📚 API Base        → http://localhost:${PORT}/api/v1`);
+    console.log(`📚 API Base        → http://localhost:${PORT}/api`);
     console.log(`🌍 Environment     → ${process.env.NODE_ENV || 'development'}`);
   });
 };

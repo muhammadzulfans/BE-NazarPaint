@@ -29,38 +29,56 @@ const validate = ({ code, name, type, basePrice, sellPrice, unit }) => {
   return errors;
 };
 
-const getAll = async ({ type, search } = {}) => {
-  const products = await prisma.product.findMany({
-    where: {
-      ...(type && { type }),
-      ...(search && {
-        OR: [
-          { name: { contains: search } },
-          { code: { contains: search } },
-        ]
-      })
-    },
-    orderBy: { code: 'asc' },
-    include: {
-      stocks: {
-        select: {
-          quantity: true,
-          store: { select: { id: true, name: true } }
+const getAll = async ({ type, search, page = 1, limit = 10 } = {}) => {
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(type && { type }),
+    ...(search && {
+      OR: [
+        { name: { contains: search } },
+        { code: { contains: search } },
+      ]
+    })
+  };
+
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      skip,
+      take: parseInt(limit),
+      orderBy: { code: 'asc' },
+      include: {
+        stocks: {
+          select: {
+            quantity: true,
+            store: { select: { id: true, name: true } }
+          }
         }
       }
-    }
-  });
+    }),
+    prisma.product.count({ where })
+  ]);
 
-  // Hitung total stok per produk dari semua cabang
-  return products.map(product => {
+  const data = products.map(product => {
     const totalStock = product.stocks.reduce((sum, s) => sum + s.quantity, 0);
     return {
       ...product,
-      totalStock,        // total stok semua cabang
-      stockPerStore: product.stocks, // stok per cabang
-      stocks: undefined  // hapus field mentah
+      totalStock,
+      stockPerStore: product.stocks,
+      stocks: undefined
     };
   });
+
+  return {
+    data,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 
 const getById = async (id) => {

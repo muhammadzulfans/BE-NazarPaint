@@ -2,9 +2,9 @@ const productService = require('./products.service');
 
 const getAll = async (req, res, next) => {
   try {
-    const { type, search } = req.query;
-    const data = await productService.getAll({ type, search });
-    res.json({ success: true, total: data.length, data });
+    const { type, search, page, limit } = req.query;
+    const data = await productService.getAll({ type, search, page, limit });
+    res.json({ success: true, ...data });
   } catch (err) { next(err); }
 };
 

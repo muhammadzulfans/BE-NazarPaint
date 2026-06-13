@@ -2,8 +2,9 @@ const storeService = require('./stores.service');
 
 const getAll = async (req, res, next) => {
   try {
-    const data = await storeService.getAll();
-    res.json({ success: true, data });
+    const { search, page, limit } = req.query;
+    const data = await storeService.getAll({ search, page, limit });
+    res.json({ success: true, ...data });
   } catch (err) { next(err); }
 };
 

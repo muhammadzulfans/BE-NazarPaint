@@ -1,12 +1,39 @@
 const prisma = require('../../lib/prisma');
 
-const getAll = async () => {
-  return prisma.store.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: { select: { users: true, stocks: true } }
+const getAll = async ({ search, page = 1, limit = 10 } = {}) => {
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(search && {
+      OR: [
+        { name: { contains: search } },
+        { address: { contains: search } },
+      ]
+    })
+  };
+
+  const [stores, total] = await Promise.all([
+    prisma.store.findMany({
+      where,
+      skip,
+      take: parseInt(limit),
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { users: true, stocks: true } }
+      }
+    }),
+    prisma.store.count({ where })
+  ]);
+
+  return {
+    data: stores,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      totalPages: Math.ceil(total / limit)
     }
-  });
+  };
 };
 
 const getById = async (id) => {

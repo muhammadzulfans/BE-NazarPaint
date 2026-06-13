@@ -2,8 +2,9 @@ const userService = require('./users.service');
 
 const getAll = async (req, res, next) => {
   try {
-    const data = await userService.getAll();
-    res.json({ success: true, total: data.length, data });
+    const { search, role, page, limit } = req.query;
+    const data = await userService.getAll({ search, role, page, limit });
+    res.json({ success: true, ...data });
   } catch (err) { next(err); }
 };
 

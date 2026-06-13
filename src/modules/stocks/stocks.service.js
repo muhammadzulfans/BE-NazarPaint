@@ -1,37 +1,56 @@
 const prisma = require('../../lib/prisma');
 
 // Get semua stok — bisa filter by storeId, type, search, dan date range
-const getAll = async ({ storeId, type, search, startDate, endDate } = {}) => {
-  const stocks = await prisma.stock.findMany({
-    where: {
-      ...(storeId && { storeId }),
-      product: {
-        ...(type && { type }),
-        ...(search && {
-          OR: [
-            { name: { contains: search } },
-            { code: { contains: search } },
-          ]
-        })
-      },
-      ...(startDate && endDate && {
-        updatedAt: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        }
+const getAll = async ({ storeId, type, search, startDate, endDate, page = 1, limit = 10 } = {}) => {
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(storeId && { storeId }),
+    product: {
+      ...(type && { type }),
+      ...(search && {
+        OR: [
+          { name: { contains: search } },
+          { code: { contains: search } },
+        ]
       })
     },
-    include: {
-      product: true,
-      store: { select: { id: true, name: true } }
-    },
-    orderBy: { product: { code: 'asc' } }
-  });
+    ...(startDate && endDate && {
+      updatedAt: {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      }
+    })
+  };
+
+  const [stocks, total] = await Promise.all([
+    prisma.stock.findMany({
+      where,
+      skip,
+      take: parseInt(limit),
+      include: {
+        product: true,
+        store: { select: { id: true, name: true } }
+      },
+      orderBy: { product: { code: 'asc' } }
+    }),
+    prisma.stock.count({ where })
+  ]);
 
   const totalQuantity = stocks.reduce((sum, s) => sum + s.quantity, 0);
   const lowStock = stocks.filter(s => s.quantity > 0 && s.quantity <= 10);
 
-  return { stocks, totalQuantity, lowStockCount: lowStock.length };
+  return {
+    stocks,
+    totalQuantity,
+    lowStockCount: lowStock.length,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 
 // Get stok by store — untuk summary card di UI

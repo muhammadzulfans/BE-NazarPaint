@@ -1,23 +1,52 @@
 const prisma = require('../../lib/prisma');
 const { hashPassword } = require('../../utils/hash.util');
 
-const getAll = async () => {
-  return prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      jabatan: true,
-      role: true,
-      createdAt: true,
-      stores: {
-        include: {
-          store: { select: { id: true, name: true } }
+const getAll = async ({ search, role, page = 1, limit = 10 } = {}) => {
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(role && { role }),
+    ...(search && {
+      OR: [
+        { name: { contains: search } },
+        { email: { contains: search } },
+        { jabatan: { contains: search } },
+      ]
+    })
+  };
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      skip,
+      take: parseInt(limit),
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jabatan: true,
+        role: true,
+        createdAt: true,
+        stores: {
+          include: {
+            store: { select: { id: true, name: true } }
+          }
         }
-      }
-    },
-    orderBy: { createdAt: 'desc' }
-  });
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.user.count({ where })
+  ]);
+
+  return {
+    data: users,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 
 const getById = async (id) => {

@@ -2,9 +2,8 @@ const stockService = require('./stocks.service');
 
 const getAll = async (req, res, next) => {
   try {
-    const { storeId, type, search, startDate, endDate } = req.query;
+    const { storeId, type, search, startDate, endDate, page, limit } = req.query;
 
-    // Kalau karyawan, paksa storeId dari token
     const resolvedStoreId = req.user.role === 'KARYAWAN'
       ? req.user.storeId
       : storeId;
@@ -14,7 +13,9 @@ const getAll = async (req, res, next) => {
       type,
       search,
       startDate,
-      endDate
+      endDate,
+      page,
+      limit
     });
 
     res.json({ success: true, data });

@@ -30,7 +30,7 @@ const validate = ({ code, name, type, basePrice, sellPrice, unit }) => {
 };
 
 const getAll = async ({ type, search } = {}) => {
-  return prisma.product.findMany({
+  const products = await prisma.product.findMany({
     where: {
       ...(type && { type }),
       ...(search && {
@@ -42,8 +42,24 @@ const getAll = async ({ type, search } = {}) => {
     },
     orderBy: { code: 'asc' },
     include: {
-      _count: { select: { stocks: true } }
+      stocks: {
+        select: {
+          quantity: true,
+          store: { select: { id: true, name: true } }
+        }
+      }
     }
+  });
+
+  // Hitung total stok per produk dari semua cabang
+  return products.map(product => {
+    const totalStock = product.stocks.reduce((sum, s) => sum + s.quantity, 0);
+    return {
+      ...product,
+      totalStock,        // total stok semua cabang
+      stockPerStore: product.stocks, // stok per cabang
+      stocks: undefined  // hapus field mentah
+    };
   });
 };
 

@@ -12,6 +12,7 @@ const mutationsRoute = require('./modules/mutations/mutations.route')
 const userRoute = require('./modules/users/users.route');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
+const dashBoardRoute = require('./modules/dashboard/dashboard.route');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'NazarPaint API Docs',
   customCss: '.swagger-ui .topbar { background-color: #EAB308 }' // warna kuning sesuai UI
 }));
+app.use('/api/dashboard', dashBoardRoute);
 // app.use('/api/users', userRoute); // ← uncomment kalau sudah dibuat
 
 // 404 handler

@@ -44,4 +44,18 @@ const remove = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAll, getById, create, remove };
+const update = async (req, res, next) => {
+  try {
+    const data = await mutationService.update(
+      req.params.id,
+      req.body,
+      req.user.id,
+      req.user.role
+    );
+    res.json({ success: true, message: 'Mutasi berhasil diperbarui', data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, remove, update };

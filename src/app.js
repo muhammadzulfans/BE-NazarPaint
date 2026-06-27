@@ -13,6 +13,7 @@ const userRoute = require('./modules/users/users.route');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
 const dashBoardRoute = require('./modules/dashboard/dashboard.route');
+const path = require('path');
 
 const app = express();
 
@@ -20,7 +21,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

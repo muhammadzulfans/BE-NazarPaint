@@ -16,6 +16,7 @@ model User {
   password  String
   jabatan   String      @default("MANAGEMENT")
   role      String      @default("KARYAWAN") // "OWNER" | "KARYAWAN"
+  avatar    String?     @default("uploads/avatars/default.jpg")
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 

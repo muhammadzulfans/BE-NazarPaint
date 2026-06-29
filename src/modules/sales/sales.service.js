@@ -107,16 +107,13 @@ const getById = async (id) => {
   return sale;
 };
 
-const create = async ({ storeId, userId, items, date }) => {
-  // Validasi input
+const create = async ({ storeId, userId, customerName, items, date }) => {
   const errors = validate({ storeId, items, date });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(', ') };
 
-  // Cek store ada
   const store = await prisma.store.findUnique({ where: { id: storeId } });
   if (!store) throw { statusCode: 404, message: 'Cabang toko tidak ditemukan' };
 
-  // Cek semua produk & stok mencukupi
   for (const item of items) {
     const product = await prisma.product.findUnique({ where: { id: item.productId } });
     if (!product) throw { statusCode: 404, message: `Produk ${item.productId} tidak ditemukan` };
@@ -133,17 +130,15 @@ const create = async ({ storeId, userId, items, date }) => {
     }
   }
 
-  // Hitung total amount
   const totalAmount = items.reduce((sum, item) =>
     sum + (parseFloat(item.quantity) * parseInt(item.sellPrice)), 0);
 
-  // Buat transaksi dalam 1 atomic transaction
   const sale = await prisma.$transaction(async (tx) => {
-    // 1. Buat sale
     const newSale = await tx.sale.create({
       data: {
         storeId,
         userId,
+        customerName: customerName?.trim() || null,   // NEW
         totalAmount,
         date: date ? new Date(date) : new Date(),
         items: {
@@ -161,14 +156,13 @@ const create = async ({ storeId, userId, items, date }) => {
         items: {
           include: {
             product: {
-              select: { id: true, code: true, name: true, type: true, unit: true }
+              select: { id: true, code: true, name: true, type: true, unit: true, color: true }
             }
           }
         }
       }
     });
 
-    // 2. Kurangi stok tiap produk
     for (const item of items) {
       await tx.stock.update({
         where: { productId_storeId: { productId: item.productId, storeId } },
@@ -182,7 +176,7 @@ const create = async ({ storeId, userId, items, date }) => {
   return sale;
 };
 
-const update = async (id, { items, date }, userId, userRole) => {
+const update = async (id, { items, date, customerName }, userId, userRole) => {
   const sale = await prisma.sale.findUnique({
     where: { id },
     include: { items: true }
@@ -190,7 +184,6 @@ const update = async (id, { items, date }, userId, userRole) => {
 
   if (!sale) throw { statusCode: 404, message: 'Transaksi penjualan tidak ditemukan' };
 
-  // Karyawan hanya bisa edit transaksi hari ini
   if (userRole === 'KARYAWAN') {
     const today = new Date();
     const saleDate = new Date(sale.date);
@@ -204,7 +197,6 @@ const update = async (id, { items, date }, userId, userRole) => {
   }
 
   const updatedSale = await prisma.$transaction(async (tx) => {
-    // 1. Kembalikan stok lama
     for (const oldItem of sale.items) {
       await tx.stock.update({
         where: { productId_storeId: { productId: oldItem.productId, storeId: sale.storeId } },
@@ -212,19 +204,18 @@ const update = async (id, { items, date }, userId, userRole) => {
       });
     }
 
-    // 2. Hapus items lama
     await tx.saleItem.deleteMany({ where: { saleId: id } });
 
     const newItems = items || sale.items;
     const totalAmount = newItems.reduce((sum, item) =>
       sum + (parseFloat(item.quantity) * parseInt(item.sellPrice)), 0);
 
-    // 3. Update sale dengan items baru
     const updated = await tx.sale.update({
       where: { id },
       data: {
         totalAmount,
         date: date ? new Date(date) : sale.date,
+        ...(customerName !== undefined && { customerName: customerName?.trim() || null }), // NEW
         items: {
           create: newItems.map(item => ({
             productId: item.productId,
@@ -241,7 +232,6 @@ const update = async (id, { items, date }, userId, userRole) => {
       }
     });
 
-    // 4. Kurangi stok baru
     for (const item of newItems) {
       await tx.stock.update({
         where: { productId_storeId: { productId: item.productId, storeId: sale.storeId } },

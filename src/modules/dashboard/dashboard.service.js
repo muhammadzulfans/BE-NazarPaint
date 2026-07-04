@@ -1,4 +1,4 @@
-const prisma = require('../../lib/prisma');
+const prisma = require("../../lib/prisma");
 
 // ─── Helper: rentang waktu ────────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ function getRangeToday() {
 function getRangeThisWeek() {
   const now = new Date();
   const day = now.getDay(); // 0=Sun
-  const diffToMon = (day === 0 ? -6 : 1 - day);
+  const diffToMon = day === 0 ? -6 : 1 - day;
   const start = new Date(now);
   start.setDate(now.getDate() + diffToMon);
   start.setHours(0, 0, 0, 0);
@@ -25,7 +25,15 @@ function getRangeThisWeek() {
 function getRangeThisMonth() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
   return { start, end };
 }
 
@@ -37,13 +45,20 @@ function getRangeLastMonth() {
 }
 
 // Buat filter storeId: OWNER bisa opsional, KARYAWAN wajib sesuai cabang sendiri
+// SESUDAH — aman
 function buildStoreFilter(user, storeId) {
-  if (user.role === 'OWNER') {
+  if (user.role === "OWNER") {
     return storeId ? { storeId } : {};
   }
-  // KARYAWAN — ambil storeId dari UserStore pertama miliknya
-  const userStoreId = user.userStores?.[0]?.storeId;
-  return userStoreId ? { storeId: userStoreId } : { storeId: null };
+  // KARYAWAN — storeId sudah ada langsung dari JWT payload
+  const userStoreId = user.storeId; // ← fix: ambil dari payload langsung
+  if (!userStoreId) {
+    throw {
+      statusCode: 403,
+      message: "Akun karyawan belum di-assign ke cabang manapun",
+    };
+  }
+  return { storeId: userStoreId };
 }
 
 // ─── 1. Ringkasan Produk ──────────────────────────────────────────────────────
@@ -52,7 +67,7 @@ async function getProductSummary() {
   const [total, byCategory] = await Promise.all([
     prisma.product.count(),
     prisma.product.groupBy({
-      by: ['type'],
+      by: ["type"],
       _count: { id: true },
     }),
   ]);
@@ -135,8 +150,8 @@ async function getWeeklySalesTrend(user, storeId) {
           date: label,
           totalAmount: agg._sum.totalAmount || 0,
           totalTransaction: agg._count.id,
-        }))
-    )
+        })),
+    ),
   );
 
   return results;
@@ -154,7 +169,7 @@ async function getMonthlySalesTrend(user, storeId) {
     const month = now.getMonth() - i;
     const start = new Date(year, month, 1, 0, 0, 0, 0);
     const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
-    const label = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+    const label = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`;
     months.push({ label, start, end });
   }
 
@@ -170,8 +185,8 @@ async function getMonthlySalesTrend(user, storeId) {
           month: label,
           totalAmount: agg._sum.totalAmount || 0,
           totalTransaction: agg._count.id,
-        }))
-    )
+        })),
+    ),
   );
 
   return results;
@@ -188,13 +203,19 @@ async function getEndOfMonthRecap(user, storeId) {
     await Promise.all([
       // Penjualan bulan ini
       prisma.sale.aggregate({
-        where: { ...storeFilter, createdAt: { gte: thisMonthStart, lte: thisMonthEnd } },
+        where: {
+          ...storeFilter,
+          createdAt: { gte: thisMonthStart, lte: thisMonthEnd },
+        },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
       // Penjualan bulan lalu
       prisma.sale.aggregate({
-        where: { ...storeFilter, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
+        where: {
+          ...storeFilter,
+          createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
@@ -202,7 +223,7 @@ async function getEndOfMonthRecap(user, storeId) {
       prisma.purchase.aggregate({
         where: {
           ...storeFilter,
-          status: 'RECEIVED',
+          status: "RECEIVED",
           createdAt: { gte: thisMonthStart, lte: thisMonthEnd },
         },
         _sum: { totalAmount: true },
@@ -212,7 +233,7 @@ async function getEndOfMonthRecap(user, storeId) {
       prisma.purchase.aggregate({
         where: {
           ...storeFilter,
-          status: 'RECEIVED',
+          status: "RECEIVED",
           createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
         },
         _sum: { totalAmount: true },
@@ -220,7 +241,7 @@ async function getEndOfMonthRecap(user, storeId) {
       }),
       // Top 5 produk terlaris bulan ini
       prisma.saleItem.groupBy({
-        by: ['productId'],
+        by: ["productId"],
         where: {
           sale: {
             ...storeFilter,
@@ -228,7 +249,7 @@ async function getEndOfMonthRecap(user, storeId) {
           },
         },
         _sum: { quantity: true, totalPrice: true },
-        orderBy: { _sum: { quantity: 'desc' } },
+        orderBy: { _sum: { quantity: "desc" } },
         take: 5,
       }),
     ]);
@@ -245,14 +266,19 @@ async function getEndOfMonthRecap(user, storeId) {
   const salesAmountLast = salesLast._sum.totalAmount || 0;
   const salesGrowth =
     salesAmountLast > 0
-      ? (((salesAmountThis - salesAmountLast) / salesAmountLast) * 100).toFixed(2)
+      ? (((salesAmountThis - salesAmountLast) / salesAmountLast) * 100).toFixed(
+          2,
+        )
       : null;
 
   const purchaseAmountThis = purchasesThis._sum.totalAmount || 0;
   const purchaseAmountLast = purchasesLast._sum.totalAmount || 0;
   const purchaseGrowth =
     purchaseAmountLast > 0
-      ? (((purchaseAmountThis - purchaseAmountLast) / purchaseAmountLast) * 100).toFixed(2)
+      ? (
+          ((purchaseAmountThis - purchaseAmountLast) / purchaseAmountLast) *
+          100
+        ).toFixed(2)
       : null;
 
   const now = new Date();
@@ -261,17 +287,30 @@ async function getEndOfMonthRecap(user, storeId) {
     period: {
       month: now.getMonth() + 1,
       year: now.getFullYear(),
-      label: `${now.toLocaleString('id-ID', { month: 'long' })} ${now.getFullYear()}`,
+      label: `${now.toLocaleString("id-ID", { month: "long" })} ${now.getFullYear()}`,
     },
     sales: {
-      thisMonth: { totalAmount: salesAmountThis, totalTransaction: salesThis._count.id },
-      lastMonth: { totalAmount: salesAmountLast, totalTransaction: salesLast._count.id },
+      thisMonth: {
+        totalAmount: salesAmountThis,
+        totalTransaction: salesThis._count.id,
+      },
+      lastMonth: {
+        totalAmount: salesAmountLast,
+        totalTransaction: salesLast._count.id,
+      },
       growthPercent: salesGrowth !== null ? parseFloat(salesGrowth) : null,
     },
     purchases: {
-      thisMonth: { totalAmount: purchaseAmountThis, totalTransaction: purchasesThis._count.id },
-      lastMonth: { totalAmount: purchaseAmountLast, totalTransaction: purchasesLast._count.id },
-      growthPercent: purchaseGrowth !== null ? parseFloat(purchaseGrowth) : null,
+      thisMonth: {
+        totalAmount: purchaseAmountThis,
+        totalTransaction: purchasesThis._count.id,
+      },
+      lastMonth: {
+        totalAmount: purchaseAmountLast,
+        totalTransaction: purchasesLast._count.id,
+      },
+      growthPercent:
+        purchaseGrowth !== null ? parseFloat(purchaseGrowth) : null,
     },
     netProfit: {
       thisMonth: salesAmountThis - purchaseAmountThis,
@@ -292,14 +331,16 @@ async function getLowStockAlert(user, storeId, threshold = 10) {
 
   const lowStocks = await prisma.stock.findMany({
     where: {
-      ...storeFilter,
+      ...(storeFilter.storeId && { storeId: storeFilter.storeId }), // safe spread
       quantity: { lte: threshold },
     },
     include: {
-      product: { select: { id: true, code: true, name: true, type: true, unit: true } },
+      product: {
+        select: { id: true, code: true, name: true, type: true, unit: true },
+      },
       store: { select: { id: true, name: true } },
     },
-    orderBy: { quantity: 'asc' },
+    orderBy: { quantity: "asc" },
   });
 
   return {
@@ -327,14 +368,17 @@ async function getStoreSummary() {
     stores.map(async (store) => {
       const [sales, purchases, stockValue] = await Promise.all([
         prisma.sale.aggregate({
-          where: { storeId: store.id, createdAt: { gte: monthStart, lte: monthEnd } },
+          where: {
+            storeId: store.id,
+            createdAt: { gte: monthStart, lte: monthEnd },
+          },
           _sum: { totalAmount: true },
           _count: { id: true },
         }),
         prisma.purchase.aggregate({
           where: {
             storeId: store.id,
-            status: 'RECEIVED',
+            status: "RECEIVED",
             createdAt: { gte: monthStart, lte: monthEnd },
           },
           _sum: { totalAmount: true },
@@ -355,7 +399,7 @@ async function getStoreSummary() {
           totalStockQty: stockValue._sum.quantity || 0,
         },
       };
-    })
+    }),
   );
 
   return summaries;
@@ -368,18 +412,17 @@ async function getStockRecap(user, storeId) {
   const { start: monthStart, end: monthEnd } = getRangeThisMonth();
 
   const [
-    stokOrder,       // Purchase PENDING → belum masuk, masih dipesan
-    stokMasuk,       // PurchaseItem RECEIVED bulan ini → masuk gudang
-    stokKeluar,      // SaleItem bulan ini → keluar gudang
-    stokAkhir,       // Stock.quantity saat ini → sisa stok
+    stokOrder, // Purchase PENDING → belum masuk, masih dipesan
+    stokMasuk, // PurchaseItem RECEIVED bulan ini → masuk gudang
+    stokKeluar, // SaleItem bulan ini → keluar gudang
+    stokAkhir, // Stock.quantity saat ini → sisa stok
   ] = await Promise.all([
-
     // Total Stok Order = qty di Purchase yang masih PENDING
     prisma.purchaseItem.aggregate({
       where: {
         purchase: {
           ...storeFilter,
-          status: 'PENDING',
+          status: "PENDING",
         },
       },
       _sum: { quantity: true },
@@ -390,7 +433,7 @@ async function getStockRecap(user, storeId) {
       where: {
         purchase: {
           ...storeFilter,
-          status: 'RECEIVED',
+          status: "RECEIVED",
           updatedAt: { gte: monthStart, lte: monthEnd },
         },
       },
@@ -416,10 +459,10 @@ async function getStockRecap(user, storeId) {
   ]);
 
   return {
-    totalStokOrder:  stokOrder._sum.quantity  || 0,
-    totalStokMasuk:  stokMasuk._sum.quantity  || 0,
+    totalStokOrder: stokOrder._sum.quantity || 0,
+    totalStokMasuk: stokMasuk._sum.quantity || 0,
     totalStokKeluar: stokKeluar._sum.quantity || 0,
-    totalStokAkhir:  stokAkhir._sum.quantity  || 0,
+    totalStokAkhir: stokAkhir._sum.quantity || 0,
   };
 }
 
@@ -429,7 +472,7 @@ async function getDashboard(user, query) {
   const { storeId, lowStockThreshold } = query;
   const threshold = lowStockThreshold ? parseInt(lowStockThreshold) : 10;
 
-  const isOwner = user.role === 'OWNER';
+  const isOwner = user.role === "OWNER";
 
   const [
     productSummary,

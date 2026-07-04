@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { generateOrderNumber } = require('../../utils/generateCode.util');
 
 const VALID_STATUS = ['PENDING', 'RECEIVED', 'CANCELLED'];
 
@@ -123,9 +124,11 @@ const create = async ({ storeId, userId, items, date }) => {
   const totalAmount = items.reduce((sum, item) =>
     sum + (parseFloat(item.quantity) * parseInt(item.basePrice)), 0);
 
-  // Tidak ada $transaction stok di sini — hanya buat record PO
+  const orderNumber = await generateOrderNumber(storeId, 'purchase');   // ADDED
+
   const purchase = await prisma.purchase.create({
     data: {
+      orderNumber,   // ADDED
       storeId,
       userId,
       totalAmount,

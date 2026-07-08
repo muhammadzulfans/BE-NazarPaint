@@ -33,6 +33,7 @@ model Store {
   id        String      @id @default(cuid())
   name      String
   address   String?
+  code      String?      @unique 
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -99,14 +100,15 @@ model Stock {
 // ==================== PENJUALAN ====================
 
 model Sale {
-  id          String     @id @default(cuid())
-  storeId     String
-  userId      String     // kasir/karyawan yang input
-  customerName String?   
-  totalAmount Int        // total harga semua item
-  date        DateTime   @default(now())
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  storeId       String
+  userId        String     // kasir/karyawan yang input
+  customerName  String?
+  orderNumber   String?    @unique// nomor order (opsional)
+  totalAmount   Int        // total harga semua item
+  date          DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   store       Store      @relation(fields: [storeId], references: [id])
   user        User       @relation(fields: [userId], references: [id])
@@ -135,6 +137,7 @@ model Purchase {
   id          String         @id @default(cuid())
   storeId     String
   userId      String
+  orderNumber String?        @unique // nomor order (opsional)
   totalAmount Int
   status      String         @default("PENDING") // "PENDING" | "RECEIVED" | "CANCELLED"
   date        DateTime       @default(now())
@@ -171,6 +174,7 @@ model Mutation {
   toStoreId   String         // cabang tujuan
   userId      String         // yang melakukan mutasi
   note        String?
+  orderNumber String?        @unique // nomor order (opsional)
   date        DateTime       @default(now())
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt

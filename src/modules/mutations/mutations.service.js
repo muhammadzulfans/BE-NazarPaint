@@ -1,5 +1,5 @@
 const prisma = require('../../lib/prisma');
-
+const { generateOrderNumber } = require('../../utils/generateCode.util');
 const validate = ({ fromStoreId, toStoreId, items, date }) => {
   const errors = [];
 
@@ -127,10 +127,11 @@ const create = async ({ fromStoreId, toStoreId, userId, items, note, date }) => 
       };
     }
   }
-
+  const orderNumber = await generateOrderNumber(fromStoreId, 'mutation');   // NEW
   const mutation = await prisma.$transaction(async (tx) => {
     const newMutation = await tx.mutation.create({
       data: {
+        orderNumber,   // NEW
         fromStoreId,
         toStoreId,
         userId,

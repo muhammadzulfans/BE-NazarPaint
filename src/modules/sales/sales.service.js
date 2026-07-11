@@ -34,32 +34,28 @@ const getAll = async ({
   const skip = (page - 1) * limit;
 
   const where = {
-    ...(storeId && { storeId }),
-    ...(startDate &&
-      endDate && {
-        date: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        },
-      }),
-    ...(type || search
-      ? {
-          items: {
-            some: {
-              product: {
-                ...(type && { type }),
-                ...(search && {
-                  OR: [
-                    { name: { contains: search } },
-                    { code: { contains: search } },
-                  ],
-                }),
-              },
-            },
-          },
-        }
-      : {}),
-  };
+  ...(storeId && { storeId }),
+  ...(startDate &&
+    endDate && {
+      date: {
+        gte: new Date(`${startDate}T00:00:00.000+07:00`),
+        lte: new Date(`${endDate}T23:59:59.999+07:00`),
+      },
+    }),
+  ...(type && {
+    items: {
+      some: {
+        product: { type },
+      },
+    },
+  }),
+  ...(search && {
+    OR: [
+      { orderNumber: { contains: search } },
+      { customerName: { contains: search } },
+    ],
+  }),
+};
 
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
@@ -80,6 +76,7 @@ const getAll = async ({
                 type: true,
                 unit: true,
                 color: true,
+                basePrice: true,
               }, // tambah color
             },
           },
@@ -131,6 +128,7 @@ const getById = async (id) => {
               type: true,
               unit: true,
               color: true,
+                basePrice: true,
             },
           },
         },
@@ -211,6 +209,7 @@ const create = async ({ storeId, userId, customerName, items, date }) => {
                 type: true,
                 unit: true,
                 color: true,
+                basePrice: true,
               },
             },
           },
@@ -301,7 +300,7 @@ const update = async (id, { items, date, customerName }, userId, userRole) => {
         items: {
   include: {
     product: {
-      select: { id: true, code: true, name: true, type: true, unit: true, color: true }
+      select: { id: true, code: true, name: true, type: true, unit: true, color: true, basePrice: true },
     }
   }
 },

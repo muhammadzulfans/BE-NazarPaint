@@ -34,28 +34,28 @@ const getAll = async ({
   const skip = (page - 1) * limit;
 
   const where = {
-  ...(storeId && { storeId }),
-  ...(startDate &&
-    endDate && {
-      date: {
-        gte: new Date(`${startDate}T00:00:00.000+07:00`),
-        lte: new Date(`${endDate}T23:59:59.999+07:00`),
+    ...(storeId && { storeId }),
+    ...(startDate &&
+      endDate && {
+        date: {
+          gte: new Date(`${startDate}T00:00:00.000+07:00`),
+          lte: new Date(`${endDate}T23:59:59.999+07:00`),
+        },
+      }),
+    ...(type && {
+      items: {
+        some: {
+          product: { type },
+        },
       },
     }),
-  ...(type && {
-    items: {
-      some: {
-        product: { type },
-      },
-    },
-  }),
-  ...(search && {
-    OR: [
-      { orderNumber: { contains: search } },
-      { customerName: { contains: search } },
-    ],
-  }),
-};
+    ...(search && {
+      OR: [
+        { orderNumber: { contains: search } },
+        { customerName: { contains: search } },
+      ],
+    }),
+  };
 
   const [sales, total] = await Promise.all([
     prisma.sale.findMany({
@@ -75,7 +75,7 @@ const getAll = async ({
                 name: true,
                 type: true,
                 unit: true,
-                color: true,
+                hexColor: true,
                 basePrice: true,
               }, // tambah color
             },
@@ -87,21 +87,48 @@ const getAll = async ({
   ]);
 
   // Summary
-  // Summary
-  const totalQuantity = sales.reduce(
-    (sum, sale) => sum + sale.items.reduce((s, item) => s + item.quantity, 0),
+  const totalQuantityKg = sales.reduce(
+    (sum, sale) =>
+      sum +
+      sale.items
+        .filter((item) => item.product.unit === "Kg")
+        .reduce((s, item) => s + item.quantity, 0),
     0,
   );
+
+  const totalQuantityPcs = sales.reduce(
+    (sum, sale) =>
+      sum +
+      sale.items
+        .filter((item) => item.product.unit === "Pcs")
+        .reduce((s, item) => s + item.quantity, 0),
+    0,
+  );
+
   const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+
+  const totalItem = sales.reduce((sum, sale) => sum + sale.items.length, 0);
 
   const data = sales.map((sale) => ({
     ...sale,
     itemCount: sale.items.length,
+    items: sale.items.map((item) => ({
+      ...item,
+      product: {
+        ...item.product,
+        hexColor:
+          item.product.hexColor ||
+          DEFAULT_COLORS[item.product.type] ||
+          "#CCCCCC",
+      },
+    })),
   }));
 
   return {
     data,
-    totalQuantity,
+    totalQuantityKg,
+    totalQuantityPcs,
+    totalItem,
     totalAmount,
     pagination: {
       page: parseInt(page),
@@ -127,8 +154,8 @@ const getById = async (id) => {
               name: true,
               type: true,
               unit: true,
-              color: true,
-                basePrice: true,
+              hexColor: true,
+              basePrice: true,
             },
           },
         },
@@ -208,7 +235,7 @@ const create = async ({ storeId, userId, customerName, items, date }) => {
                 name: true,
                 type: true,
                 unit: true,
-                color: true,
+                hexColor: true,
                 basePrice: true,
               },
             },
@@ -298,12 +325,20 @@ const update = async (id, { items, date, customerName }, userId, userRole) => {
         store: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
         items: {
-  include: {
-    product: {
-      select: { id: true, code: true, name: true, type: true, unit: true, color: true, basePrice: true },
-    }
-  }
-},
+          include: {
+            product: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                type: true,
+                unit: true,
+                hexColor: true,
+                basePrice: true,
+              },
+            },
+          },
+        },
       },
     });
 

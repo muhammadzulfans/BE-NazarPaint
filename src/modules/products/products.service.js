@@ -2,9 +2,14 @@ const prisma = require("../../lib/prisma");
 const { generateProductCode } = require("../../utils/generateCode.util");
 
 const VALID_TYPES = ["GLOSS", "PRO", "SUPER", "ACCESSORIES"];
-
+const DEFAULT_COLORS = {
+  GLOSS: "#FFD700",
+  PRO: "#1E90FF",
+  SUPER: "#FF4500",
+  ACCESSORIES: "#808080",
+};
 // code dihapus dari parameter validate karena sekarang auto-generate
-const validate = ({ name, type, color, basePrice, sellPrice, unit }) => {
+const validate = ({ name, type, hexColor, basePrice, sellPrice, unit }) => {
   const errors = [];
 
   if (!name || name.trim().length < 2)
@@ -13,7 +18,7 @@ const validate = ({ name, type, color, basePrice, sellPrice, unit }) => {
   if (!type || !VALID_TYPES.includes(type))
     errors.push(`Tipe barang harus salah satu dari: ${VALID_TYPES.join(", ")}`);
 
-  if (color && !/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color.trim()))
+  if (hexColor && !/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hexColor.trim()))
     errors.push("Format warna harus hex code, contoh: #FFFFFF");
 
   if (!basePrice || isNaN(basePrice) || basePrice <= 0)
@@ -63,6 +68,7 @@ const getAll = async ({ type, search, page = 1, limit = 10 } = {}) => {
     const totalStock = product.stocks.reduce((sum, s) => sum + s.quantity, 0);
     return {
       ...product,
+      hexColor: product.hexColor || DEFAULT_COLORS[product.type] || "#CCCCCC",
       totalStock,
       stockPerStore: product.stocks,
       stocks: undefined,
@@ -93,14 +99,17 @@ const getById = async (id) => {
   });
 
   if (!product) throw { statusCode: 404, message: "Produk tidak ditemukan" };
-  return product;
+  return {
+    ...product,
+    hexColor: product.hexColor || DEFAULT_COLORS[product.type] || "#CCCCCC",
+  };
 };
 
 // code TIDAK lagi diambil dari body — di-generate otomatis berdasarkan type
 const create = async (body) => {
-  const { name, type, color, basePrice, sellPrice, unit } = body;
+  const { name, type, hexColor, basePrice, sellPrice, unit } = body;
 
-  const errors = validate({ name, type, color, basePrice, sellPrice, unit });
+  const errors = validate({ name, type, hexColor, basePrice, sellPrice, unit });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
 
   const code = await generateProductCode(type);
@@ -110,7 +119,7 @@ const create = async (body) => {
       code,
       name: name.trim(),
       type,
-      color: color?.trim() || null,
+      hexColor: hexColor?.trim() || null,
       basePrice: parseInt(basePrice),
       sellPrice: parseInt(sellPrice),
       unit: unit?.trim() || "Kg",
@@ -120,7 +129,7 @@ const create = async (body) => {
 
 // code TIDAK boleh diubah lagi setelah create (read-only)
 const update = async (id, body) => {
-  const { name, type, color, basePrice, sellPrice, unit } = body;
+  const { name, type, hexColor, basePrice, sellPrice, unit } = body;
 
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) throw { statusCode: 404, message: "Produk tidak ditemukan" };
@@ -128,7 +137,7 @@ const update = async (id, body) => {
   const errors = validate({
     name: name ?? product.name,
     type: type ?? product.type,
-    color: color ?? product.color,
+    hexColor: hexColor ?? product.hexColor,
     basePrice: basePrice ?? product.basePrice,
     sellPrice: sellPrice ?? product.sellPrice,
     unit: unit ?? product.unit,
@@ -140,7 +149,7 @@ const update = async (id, body) => {
     data: {
       ...(name && { name: name.trim() }),
       ...(type && { type }),
-      ...(color !== undefined && { color: color?.trim() || null }),
+      ...(hexColor !== undefined && { hexColor: hexColor?.trim() || null }),
       ...(basePrice && { basePrice: parseInt(basePrice) }),
       ...(sellPrice && { sellPrice: parseInt(sellPrice) }),
       ...(unit && { unit: unit.trim() }),

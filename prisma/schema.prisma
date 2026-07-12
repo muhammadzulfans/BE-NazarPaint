@@ -67,7 +67,7 @@ model Product {
   code        String   @unique // kode barang, contoh: 515, 210
   name        String           // nama barang, contoh: Silver, Red
   type        String           // "GLOSS" | "PRO" | "SUPER" | "ACCESSORIES"
-  color       String?           // hex code, contoh: "#FFFFFF" — NEW
+  hexColor    String?           // hex code, contoh: "#FFFFFF" — NEW
   basePrice   Int              // harga pokok (Rp)
   sellPrice   Int              // harga jual (Rp)
   unit        String   @default("Kg") // satuan: Kg, pcs, dll

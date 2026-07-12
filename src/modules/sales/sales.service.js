@@ -1,5 +1,13 @@
 const prisma = require("../../lib/prisma");
 const { generateOrderNumber } = require("../../utils/generateCode.util");
+
+const DEFAULT_COLORS = {
+  GLOSS: "#FFD700",
+  PRO: "#1E90FF",
+  SUPER: "#FF4500",
+  ACCESSORIES: "#808080",
+};
+
 const validate = ({ storeId, items, date }) => {
   const errors = [];
 
@@ -77,6 +85,7 @@ const getAll = async ({
                 unit: true,
                 hexColor: true,
                 basePrice: true,
+                hexColor: true, // tambah hexColor
               }, // tambah color
             },
           },
@@ -166,7 +175,20 @@ const getById = async (id) => {
   if (!sale)
     throw { statusCode: 404, message: "Transaksi penjualan tidak ditemukan" };
 
-  return { ...sale, itemCount: sale.items.length }; // tambah itemCount
+  return {
+    ...sale,
+    itemCount: sale.items.length,
+    items: sale.items.map((item) => ({
+      ...item,
+      product: {
+        ...item.product,
+        hexColor:
+          item.product.hexColor ||
+          DEFAULT_COLORS[item.product.type] ||
+          "#CCCCCC",
+      },
+    })),
+  }; // tambah itemCount
 };
 
 const create = async ({ storeId, userId, customerName, items, date }) => {
@@ -254,7 +276,19 @@ const create = async ({ storeId, userId, customerName, items, date }) => {
     return newSale;
   });
 
-  return sale;
+  return {
+    ...sale,
+    items: sale.items.map((item) => ({
+      ...item,
+      product: {
+        ...item.product,
+        hexColor:
+          item.product.hexColor ||
+          DEFAULT_COLORS[item.product.type] ||
+          "#CCCCCC",
+      },
+    })),
+  };
 };
 
 const update = async (id, { items, date, customerName }, userId, userRole) => {
@@ -357,7 +391,19 @@ const update = async (id, { items, date, customerName }, userId, userRole) => {
     return updated;
   });
 
-  return updatedSale;
+  return {
+    ...updatedSale,
+    items: updatedSale.items.map((item) => ({
+      ...item,
+      product: {
+        ...item.product,
+        hexColor:
+          item.product.hexColor ||
+          DEFAULT_COLORS[item.product.type] ||
+          "#CCCCCC",
+      },
+    })),
+  };
 };
 
 const remove = async (id, userRole) => {

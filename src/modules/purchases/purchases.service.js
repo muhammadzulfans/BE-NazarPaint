@@ -1,15 +1,45 @@
-const prisma = require('../../lib/prisma');
-const { generateOrderNumber } = require('../../utils/generateCode.util');
+const prisma = require("../../lib/prisma");
+const { generateOrderNumber } = require("../../utils/generateCode.util");
 
-const VALID_STATUS = ['PENDING', 'RECEIVED', 'CANCELLED'];
+const VALID_STATUS = ["PENDING", "RECEIVED", "CANCELLED"];
+
+const DEFAULT_COLORS = {
+  GLOSS: "#FFD700",
+  PRO: "#1E90FF",
+  SUPER: "#FF4500",
+  ACCESSORIES: "#808080",
+};
+
+const PRODUCT_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  type: true,
+  unit: true,
+  hexColor: true,
+};
+
+const applyHexColor = (product) => ({
+  ...product,
+  hexColor: product.hexColor || DEFAULT_COLORS[product.type] || "#CCCCCC",
+});
+
+const applyPurchaseTransform = (purchase) => ({
+  ...purchase,
+  itemCount: purchase.items.length,
+  items: purchase.items.map((item) => ({
+    ...item,
+    product: applyHexColor(item.product),
+  })),
+});
 
 const validate = ({ storeId, items, date }) => {
   const errors = [];
 
-  if (!storeId) errors.push('storeId wajib diisi');
+  if (!storeId) errors.push("storeId wajib diisi");
 
   if (!items || !Array.isArray(items) || items.length === 0)
-    errors.push('Items belanja wajib diisi minimal 1 produk');
+    errors.push("Items belanja wajib diisi minimal 1 produk");
 
   items?.forEach((item, i) => {
     if (!item.productId) errors.push(`Item ke-${i + 1}: productId wajib diisi`);
@@ -20,38 +50,50 @@ const validate = ({ storeId, items, date }) => {
   });
 
   if (date && isNaN(new Date(date).getTime()))
-    errors.push('Format tanggal tidak valid');
+    errors.push("Format tanggal tidak valid");
 
   return errors;
 };
 
-const getAll = async ({ storeId, status, type, search, startDate, endDate, page = 1, limit = 10 } = {}) => {
+const getAll = async ({
+  storeId,
+  status,
+  type,
+  search,
+  startDate,
+  endDate,
+  page = 1,
+  limit = 10,
+} = {}) => {
   const skip = (page - 1) * limit;
 
   const where = {
     ...(storeId && { storeId }),
     ...(status && { status }),
-    ...(startDate && endDate && {
-      date: {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      }
-    }),
-    ...(type || search ? {
-      items: {
-        some: {
-          product: {
-            ...(type && { type }),
-            ...(search && {
-              OR: [
-                { name: { contains: search } },
-                { code: { contains: search } },
-              ]
-            })
-          }
+    ...(startDate &&
+      endDate && {
+        date: {
+          gte: new Date(`${startDate}T00:00:00.000+07:00`),
+          lte: new Date(`${endDate}T23:59:59.999+07:00`),
+        },
+      }),
+    ...(type || search
+      ? {
+          items: {
+            some: {
+              product: {
+                ...(type && { type }),
+                ...(search && {
+                  OR: [
+                    { name: { contains: search } },
+                    { code: { contains: search } },
+                  ],
+                }),
+              },
+            },
+          },
         }
-      }
-    } : {})
+      : {}),
   };
 
   const [purchases, total] = await Promise.all([
@@ -59,29 +101,29 @@ const getAll = async ({ storeId, status, type, search, startDate, endDate, page 
       where,
       skip,
       take: parseInt(limit),
-      orderBy: { date: 'desc' },
+      orderBy: { date: "desc" },
       include: {
         store: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
         items: {
           include: {
-            product: {
-              select: { id: true, code: true, name: true, type: true, unit: true }
-            }
-          }
-        }
-      }
+            product: { select: PRODUCT_SELECT },
+          },
+        },
+      },
     }),
-    prisma.purchase.count({ where })
+    prisma.purchase.count({ where }),
   ]);
 
-  const totalQuantity = purchases.reduce((sum, purchase) =>
-    sum + purchase.items.reduce((s, item) => s + item.quantity, 0), 0);
-  const totalAmount = purchases.reduce((sum, purchase) => sum + purchase.totalAmount, 0);
-  const pendingCount = purchases.filter(p => p.status === 'PENDING').length;
+  const totalQuantity = purchases.reduce(
+    (sum, p) => sum + p.items.reduce((s, item) => s + item.quantity, 0),
+    0,
+  );
+  const totalAmount = purchases.reduce((sum, p) => sum + p.totalAmount, 0);
+  const pendingCount = purchases.filter((p) => p.status === "PENDING").length;
 
   return {
-    data: purchases,
+    data: purchases.map(applyPurchaseTransform),
     totalQuantity,
     totalAmount,
     pendingCount,
@@ -89,8 +131,8 @@ const getAll = async ({ storeId, status, type, search, startDate, endDate, page 
       page: parseInt(page),
       limit: parseInt(limit),
       total,
-      totalPages: Math.ceil(total / limit)
-    }
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };
 
@@ -100,163 +142,206 @@ const getById = async (id) => {
     include: {
       store: { select: { id: true, name: true } },
       user: { select: { id: true, name: true } },
-      items: { include: { product: true } }
-    }
+      items: {
+        include: {
+          product: { select: PRODUCT_SELECT },
+        },
+      },
+    },
   });
 
-  if (!purchase) throw { statusCode: 404, message: 'Transaksi belanja tidak ditemukan' };
-  return purchase;
+  if (!purchase)
+    throw { statusCode: 404, message: "Transaksi belanja tidak ditemukan" };
+
+  return applyPurchaseTransform(purchase);
 };
 
-// CREATE — hanya buat PO, status PENDING, stok BELUM bertambah
 const create = async ({ storeId, userId, items, date }) => {
   const errors = validate({ storeId, items, date });
-  if (errors.length > 0) throw { statusCode: 400, message: errors.join(', ') };
+  if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
 
   const store = await prisma.store.findUnique({ where: { id: storeId } });
-  if (!store) throw { statusCode: 404, message: 'Cabang toko tidak ditemukan' };
+  if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
 
   for (const item of items) {
-    const product = await prisma.product.findUnique({ where: { id: item.productId } });
-    if (!product) throw { statusCode: 404, message: `Produk ${item.productId} tidak ditemukan` };
+    const product = await prisma.product.findUnique({
+      where: { id: item.productId },
+    });
+    if (!product)
+      throw {
+        statusCode: 404,
+        message: `Produk ${item.productId} tidak ditemukan`,
+      };
   }
 
-  const totalAmount = items.reduce((sum, item) =>
-    sum + (parseFloat(item.quantity) * parseInt(item.basePrice)), 0);
+  const totalAmount = items.reduce(
+    (sum, item) => sum + parseFloat(item.quantity) * parseInt(item.basePrice),
+    0,
+  );
 
-  const orderNumber = await generateOrderNumber(storeId, 'purchase');   // ADDED
+  const orderNumber = await generateOrderNumber(storeId, "purchase");
 
   const purchase = await prisma.purchase.create({
     data: {
-      orderNumber,   // ADDED
+      orderNumber,
       storeId,
       userId,
       totalAmount,
-      status: 'PENDING',
+      status: "PENDING",
       date: date ? new Date(date) : new Date(),
       items: {
-        create: items.map(item => ({
+        create: items.map((item) => ({
           productId: item.productId,
           quantity: parseFloat(item.quantity),
           basePrice: parseInt(item.basePrice),
-          totalPrice: parseFloat(item.quantity) * parseInt(item.basePrice)
-        }))
-      }
+          totalPrice: parseFloat(item.quantity) * parseInt(item.basePrice),
+        })),
+      },
     },
     include: {
       store: { select: { id: true, name: true } },
       user: { select: { id: true, name: true } },
       items: {
         include: {
-          product: {
-            select: { id: true, code: true, name: true, type: true, unit: true }
-          }
-        }
-      }
-    }
+          product: { select: PRODUCT_SELECT },
+        },
+      },
+    },
   });
 
-  return purchase;
+  return applyPurchaseTransform(purchase);
 };
 
-// RECEIVE — konfirmasi barang diterima, stok baru BERTAMBAH
 const receive = async (id, userRole) => {
   const purchase = await prisma.purchase.findUnique({
     where: { id },
-    include: { items: true }
+    include: { items: true },
   });
 
-  if (!purchase) throw { statusCode: 404, message: 'Transaksi belanja tidak ditemukan' };
+  if (!purchase)
+    throw { statusCode: 404, message: "Transaksi belanja tidak ditemukan" };
 
-  if (purchase.status === 'RECEIVED') {
-    throw { statusCode: 400, message: 'PO ini sudah dikonfirmasi diterima sebelumnya' };
-  }
+  if (purchase.status === "RECEIVED")
+    throw {
+      statusCode: 400,
+      message: "PO ini sudah dikonfirmasi diterima sebelumnya",
+    };
 
-  if (purchase.status === 'CANCELLED') {
-    throw { statusCode: 400, message: 'PO yang sudah dibatalkan tidak bisa diterima' };
-  }
+  if (purchase.status === "CANCELLED")
+    throw {
+      statusCode: 400,
+      message: "PO yang sudah dibatalkan tidak bisa diterima",
+    };
 
   const updated = await prisma.$transaction(async (tx) => {
-    // Update status & tanggal terima
     const updatedPurchase = await tx.purchase.update({
       where: { id },
-      data: { status: 'RECEIVED', receivedAt: new Date() },
+      data: { status: "RECEIVED", receivedAt: new Date() },
       include: {
         store: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
-        items: { include: { product: true } }
-      }
+        items: {
+          include: {
+            product: { select: PRODUCT_SELECT },
+          },
+        },
+      },
     });
 
-    // Baru sekarang stok bertambah
     for (const item of purchase.items) {
       await tx.stock.upsert({
-        where: { productId_storeId: { productId: item.productId, storeId: purchase.storeId } },
+        where: {
+          productId_storeId: {
+            productId: item.productId,
+            storeId: purchase.storeId,
+          },
+        },
         update: { quantity: { increment: item.quantity } },
-        create: { productId: item.productId, storeId: purchase.storeId, quantity: item.quantity }
+        create: {
+          productId: item.productId,
+          storeId: purchase.storeId,
+          quantity: item.quantity,
+        },
       });
     }
 
     return updatedPurchase;
   });
 
-  return updated;
+  return applyPurchaseTransform(updated);
 };
 
-// CANCEL — batalkan PO, stok tidak berubah (karena belum pernah ditambah)
 const cancel = async (id, userRole) => {
   const purchase = await prisma.purchase.findUnique({ where: { id } });
 
-  if (!purchase) throw { statusCode: 404, message: 'Transaksi belanja tidak ditemukan' };
+  if (!purchase)
+    throw { statusCode: 404, message: "Transaksi belanja tidak ditemukan" };
 
-  if (purchase.status === 'RECEIVED') {
-    throw { statusCode: 400, message: 'PO yang sudah diterima tidak bisa dibatalkan. Gunakan hapus transaksi jika perlu rollback stok' };
-  }
+  if (purchase.status === "RECEIVED")
+    throw {
+      statusCode: 400,
+      message:
+        "PO yang sudah diterima tidak bisa dibatalkan. Gunakan hapus transaksi jika perlu rollback stok",
+    };
 
-  if (purchase.status === 'CANCELLED') {
-    throw { statusCode: 400, message: 'PO ini sudah dibatalkan sebelumnya' };
-  }
+  if (purchase.status === "CANCELLED")
+    throw { statusCode: 400, message: "PO ini sudah dibatalkan sebelumnya" };
 
-  return prisma.purchase.update({
+  const updated = await prisma.purchase.update({
     where: { id },
-    data: { status: 'CANCELLED' },
+    data: { status: "CANCELLED" },
     include: {
       store: { select: { id: true, name: true } },
       user: { select: { id: true, name: true } },
-      items: { include: { product: true } }
-    }
+      items: {
+        include: {
+          product: { select: PRODUCT_SELECT },
+        },
+      },
+    },
   });
+
+  return applyPurchaseTransform(updated);
 };
 
 const update = async (id, { items, date }, userRole) => {
   const purchase = await prisma.purchase.findUnique({
     where: { id },
-    include: { items: true }
+    include: { items: true },
   });
 
-  if (!purchase) throw { statusCode: 404, message: 'Transaksi belanja tidak ditemukan' };
+  if (!purchase)
+    throw { statusCode: 404, message: "Transaksi belanja tidak ditemukan" };
 
-  if (purchase.status !== 'PENDING') {
-    throw { statusCode: 400, message: 'Hanya PO berstatus PENDING yang bisa diedit' };
-  }
+  if (purchase.status !== "PENDING")
+    throw {
+      statusCode: 400,
+      message: "Hanya PO berstatus PENDING yang bisa diedit",
+    };
 
-  if (userRole === 'KARYAWAN') {
+  if (userRole === "KARYAWAN") {
     const today = new Date();
     const purchaseDate = new Date(purchase.date);
     const isToday = purchaseDate.toDateString() === today.toDateString();
-    if (!isToday) throw { statusCode: 403, message: 'Karyawan hanya bisa edit transaksi hari ini' };
+    if (!isToday)
+      throw {
+        statusCode: 403,
+        message: "Karyawan hanya bisa edit transaksi hari ini",
+      };
   }
 
   if (items) {
     const errors = validate({ storeId: purchase.storeId, items, date });
-    if (errors.length > 0) throw { statusCode: 400, message: errors.join(', ') };
+    if (errors.length > 0)
+      throw { statusCode: 400, message: errors.join(", ") };
   }
 
   const newItems = items || purchase.items;
-  const totalAmount = newItems.reduce((sum, item) =>
-    sum + (parseFloat(item.quantity) * parseInt(item.basePrice)), 0);
+  const totalAmount = newItems.reduce(
+    (sum, item) => sum + parseFloat(item.quantity) * parseInt(item.basePrice),
+    0,
+  );
 
-  // Hapus items lama, buat baru — tidak menyentuh stok karena masih PENDING
   const updated = await prisma.$transaction(async (tx) => {
     await tx.purchaseItem.deleteMany({ where: { purchaseId: id } });
 
@@ -266,48 +351,58 @@ const update = async (id, { items, date }, userRole) => {
         totalAmount,
         date: date ? new Date(date) : purchase.date,
         items: {
-          create: newItems.map(item => ({
+          create: newItems.map((item) => ({
             productId: item.productId,
             quantity: parseFloat(item.quantity),
             basePrice: parseInt(item.basePrice),
-            totalPrice: parseFloat(item.quantity) * parseInt(item.basePrice)
-          }))
-        }
+            totalPrice: parseFloat(item.quantity) * parseInt(item.basePrice),
+          })),
+        },
       },
       include: {
         store: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
-        items: { include: { product: true } }
-      }
+        items: {
+          include: {
+            product: { select: PRODUCT_SELECT },
+          },
+        },
+      },
     });
   });
 
-  return updated;
+  return applyPurchaseTransform(updated);
 };
 
 const remove = async (id, userRole) => {
   const purchase = await prisma.purchase.findUnique({
     where: { id },
-    include: { items: true }
+    include: { items: true },
   });
 
-  if (!purchase) throw { statusCode: 404, message: 'Transaksi belanja tidak ditemukan' };
+  if (!purchase)
+    throw { statusCode: 404, message: "Transaksi belanja tidak ditemukan" };
 
-  if (userRole === 'KARYAWAN') {
-    throw { statusCode: 403, message: 'Karyawan tidak bisa menghapus transaksi belanja' };
-  }
+  if (userRole === "KARYAWAN")
+    throw {
+      statusCode: 403,
+      message: "Karyawan tidak bisa menghapus transaksi belanja",
+    };
 
   await prisma.$transaction(async (tx) => {
-    // Hanya rollback stok kalau PO sudah RECEIVED (stok pernah ditambah)
-    if (purchase.status === 'RECEIVED') {
+    if (purchase.status === "RECEIVED") {
       for (const item of purchase.items) {
         await tx.stock.update({
-          where: { productId_storeId: { productId: item.productId, storeId: purchase.storeId } },
-          data: { quantity: { decrement: item.quantity } }
+          where: {
+            productId_storeId: {
+              productId: item.productId,
+              storeId: purchase.storeId,
+            },
+          },
+          data: { quantity: { decrement: item.quantity } },
         });
       }
     }
-
     await tx.purchase.delete({ where: { id } });
   });
 };

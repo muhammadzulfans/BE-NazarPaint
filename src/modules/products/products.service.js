@@ -2,6 +2,7 @@ const prisma = require("../../lib/prisma");
 const { generateProductCode } = require("../../utils/generateCode.util");
 
 const VALID_TYPES = ["GLOSS", "PRO", "SUPER", "ACCESSORIES"];
+
 const DEFAULT_COLORS = {
   GLOSS: "#FFD700",
   PRO: "#1E90FF",

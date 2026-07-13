@@ -37,7 +37,14 @@ const validate = ({ name, type, hexColor, basePrice, sellPrice, unit }) => {
   return errors;
 };
 
-const getAll = async ({ type, search, page = 1, limit = 10 } = {}) => {
+const getAll = async ({
+  type,
+  search,
+  startDate,
+  endDate,
+  page = 1,
+  limit = 10,
+} = {}) => {
   const skip = (page - 1) * limit;
 
   const where = {
@@ -45,6 +52,13 @@ const getAll = async ({ type, search, page = 1, limit = 10 } = {}) => {
     ...(search && {
       OR: [{ name: { contains: search } }, { code: { contains: search } }],
     }),
+    ...(startDate &&
+      endDate && {
+        createdAt: {
+          gte: new Date(`${startDate}T00:00:00.000Z`),
+          lte: new Date(`${endDate}T23:59:59.999Z`),
+        },
+      }),
   };
 
   const [products, total] = await Promise.all([

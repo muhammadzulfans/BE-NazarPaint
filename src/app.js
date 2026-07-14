@@ -12,7 +12,9 @@ const mutationsRoute = require('./modules/mutations/mutations.route')
 const userRoute = require('./modules/users/users.route');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
+const stockOpnameRoute = require('./modules/stock-opnames/stock-opnames.route');
 const dashBoardRoute = require('./modules/dashboard/dashboard.route');
+
 const path = require('path');
 
 const app = express();
@@ -36,6 +38,7 @@ app.use('/api/stocks', stockRoute);
 app.use('/api/sales', saleRoute);
 app.use('/api/purchases', purchaseRoute);
 app.use('/api/mutations', mutationsRoute);
+app.use('/api/stock-opnames', stockOpnameRoute);
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'NazarPaint API Docs',
   customCss: '.swagger-ui .topbar { background-color: #EAB308 }' // warna kuning sesuai UI

@@ -10,39 +10,41 @@ datasource db {
 // ==================== USER & STORE ====================
 
 model User {
-  id        String      @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
-  email     String      @unique
+  email     String   @unique
   password  String
-  jabatan   String      @default("MANAGEMENT")
-  role      String      @default("KARYAWAN") // "OWNER" | "KARYAWAN"
-  avatar    String?     @default("uploads/avatars/default.jpg")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  jabatan   String   @default("MANAGEMENT")
+  role      String   @default("KARYAWAN") // "OWNER" | "KARYAWAN"
+  avatar    String?  @default("uploads/avatars/default.jpg")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   stores        UserStore[]
   sales         Sale[]
   purchases     Purchase[]
-  mutationsFrom Mutation[]  @relation("MutationFrom")
-  mutationsTo   Mutation[]  @relation("MutationTo")
+  mutationsFrom Mutation[]    @relation("MutationFrom")
+  mutationsTo   Mutation[]    @relation("MutationTo")
+  stockOpnames  StockOpname[]
 
   @@map("users")
 }
 
 model Store {
-  id        String      @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
   address   String?
-  code      String?      @unique 
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  code      String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   users         UserStore[]
   stocks        Stock[]
   salesFrom     Sale[]
   purchasesFrom Purchase[]
-  mutationsFrom Mutation[]  @relation("MutationStoreFrom")
-  mutationsTo   Mutation[]  @relation("MutationStoreTo")
+  mutationsFrom Mutation[]    @relation("MutationStoreFrom")
+  mutationsTo   Mutation[]    @relation("MutationStoreTo")
+  stockOpnames  StockOpname[]
 
   @@map("stores")
 }
@@ -53,8 +55,8 @@ model UserStore {
   storeId   String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, storeId])
   @@map("user_stores")
@@ -63,21 +65,22 @@ model UserStore {
 // ==================== PRODUCT & STOCK ====================
 
 model Product {
-  id          String   @id @default(cuid())
-  code        String   @unique // kode barang, contoh: 515, 210
-  name        String           // nama barang, contoh: Silver, Red
-  type        String           // "GLOSS" | "PRO" | "SUPER" | "ACCESSORIES"
-  hexColor    String?           // hex code, contoh: "#FFFFFF" — NEW
-  basePrice   Int              // harga pokok (Rp)
-  sellPrice   Int              // harga jual (Rp)
-  unit        String   @default("Kg") // satuan: Kg, pcs, dll
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  code      String   @unique // kode barang, contoh: 515, 210
+  name      String // nama barang, contoh: Silver, Red
+  type      String // "GLOSS" | "PRO" | "SUPER" | "ACCESSORIES"
+  hexColor  String? // hex code, contoh: "#FFFFFF" — NEW
+  basePrice Int // harga pokok (Rp)
+  sellPrice Int // harga jual (Rp)
+  unit      String   @default("Kg") // satuan: Kg, pcs, dll
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  stocks        Stock[]
-  saleItems     SaleItem[]
-  purchaseItems PurchaseItem[]
-  mutationItems MutationItem[]
+  stocks           Stock[]
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  mutationItems    MutationItem[]
+  stockOpnameItems StockOpnameItem[]
 
   @@map("products")
 }
@@ -90,8 +93,8 @@ model Stock {
   quantity  Float    @default(0) // total stok dalam unit (Kg/pcs)
   updatedAt DateTime @updatedAt
 
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([productId, storeId]) // 1 produk hanya punya 1 record stok per cabang
   @@map("stocks")
@@ -100,33 +103,33 @@ model Stock {
 // ==================== PENJUALAN ====================
 
 model Sale {
-  id            String     @id @default(cuid())
-  storeId       String
-  userId        String     // kasir/karyawan yang input
-  customerName  String?
-  orderNumber   String?    @unique// nomor order (opsional)
-  totalAmount   Int        // total harga semua item
-  date          DateTime   @default(now())
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String   @id @default(cuid())
+  storeId      String
+  userId       String // kasir/karyawan yang input
+  customerName String?
+  orderNumber  String?  @unique // nomor order (opsional)
+  totalAmount  Int // total harga semua item
+  date         DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  store       Store      @relation(fields: [storeId], references: [id])
-  user        User       @relation(fields: [userId], references: [id])
-  items       SaleItem[]
+  store Store      @relation(fields: [storeId], references: [id])
+  user  User       @relation(fields: [userId], references: [id])
+  items SaleItem[]
 
   @@map("sales")
 }
 
 model SaleItem {
-  id          String   @id @default(cuid())
-  saleId      String
-  productId   String
-  quantity    Float    // jumlah terjual (Kg)
-  sellPrice   Int      // harga jual saat transaksi (snapshot)
-  totalPrice  Int      // quantity * sellPrice
+  id         String @id @default(cuid())
+  saleId     String
+  productId  String
+  quantity   Float // jumlah terjual (Kg)
+  sellPrice  Int // harga jual saat transaksi (snapshot)
+  totalPrice Int // quantity * sellPrice
 
-  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id])
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 
   @@map("sale_items")
 }
@@ -134,34 +137,34 @@ model SaleItem {
 // ==================== BELANJA / PEMBELIAN ====================
 
 model Purchase {
-  id          String         @id @default(cuid())
+  id          String    @id @default(cuid())
   storeId     String
   userId      String
-  orderNumber String?        @unique // nomor order (opsional)
+  orderNumber String?   @unique // nomor order (opsional)
   totalAmount Int
-  status      String         @default("PENDING") // "PENDING" | "RECEIVED" | "CANCELLED"
-  date        DateTime       @default(now())
+  status      String    @default("PENDING") // "PENDING" | "RECEIVED" | "CANCELLED"
+  date        DateTime  @default(now())
   receivedAt  DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  store       Store          @relation(fields: [storeId], references: [id])
-  user        User           @relation(fields: [userId], references: [id])
-  items       PurchaseItem[]
+  store Store          @relation(fields: [storeId], references: [id])
+  user  User           @relation(fields: [userId], references: [id])
+  items PurchaseItem[]
 
   @@map("purchases")
 }
 
 model PurchaseItem {
-  id          String   @id @default(cuid())
-  purchaseId  String
-  productId   String
-  quantity    Float    // jumlah dibeli (Kg)
-  basePrice   Int      // harga pokok saat beli (snapshot)
-  totalPrice  Int      // quantity * basePrice
+  id         String @id @default(cuid())
+  purchaseId String
+  productId  String
+  quantity   Float // jumlah dibeli (Kg)
+  basePrice  Int // harga pokok saat beli (snapshot)
+  totalPrice Int // quantity * basePrice
 
-  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id])
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
 
   @@map("purchase_items")
 }
@@ -169,34 +172,66 @@ model PurchaseItem {
 // ==================== MUTASI STOK ====================
 
 model Mutation {
-  id          String         @id @default(cuid())
-  fromStoreId String         // cabang asal
-  toStoreId   String         // cabang tujuan
-  userId      String         // yang melakukan mutasi
+  id          String   @id @default(cuid())
+  fromStoreId String // cabang asal
+  toStoreId   String // cabang tujuan
+  userId      String // yang melakukan mutasi
   note        String?
-  orderNumber String?        @unique // nomor order (opsional)
-  date        DateTime       @default(now())
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  orderNumber String?  @unique // nomor order (opsional)
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  fromStore   Store          @relation("MutationStoreFrom", fields: [fromStoreId], references: [id])
-  toStore     Store          @relation("MutationStoreTo", fields: [toStoreId], references: [id])
-  userFrom    User           @relation("MutationFrom", fields: [userId], references: [id])
-  userTo      User?          @relation("MutationTo", fields: [receivedBy], references: [id])
-  receivedBy  String?        // yang menerima mutasi (opsional)
-  items       MutationItem[]
+  fromStore  Store          @relation("MutationStoreFrom", fields: [fromStoreId], references: [id])
+  toStore    Store          @relation("MutationStoreTo", fields: [toStoreId], references: [id])
+  userFrom   User           @relation("MutationFrom", fields: [userId], references: [id])
+  userTo     User?          @relation("MutationTo", fields: [receivedBy], references: [id])
+  receivedBy String? // yang menerima mutasi (opsional)
+  items      MutationItem[]
 
   @@map("mutations")
 }
 
 model MutationItem {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   mutationId String
   productId  String
   quantity   Float
 
-  mutation   Mutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id])
+  mutation Mutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
 
   @@map("mutation_items")
+}
+
+model StockOpname {
+  id          String   @id @default(cuid())
+  orderNumber String   @unique
+  storeId     String
+  userId      String
+  status      String   @default("DRAFT")
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store Store             @relation(fields: [storeId], references: [id])
+  user  User              @relation(fields: [userId], references: [id])
+  items StockOpnameItem[]
+
+  @@map("stock_opnames")
+}
+
+model StockOpnameItem {
+  id         String  @id @default(cuid())
+  opnameId   String
+  productId  String
+  stokSistem Float
+  stokFisik  Float
+  selisih    Float
+  catatan    String?
+
+  opname  StockOpname @relation(fields: [opnameId], references: [id], onDelete: Cascade)
+  product Product     @relation(fields: [productId], references: [id])
+
+  @@map("stock_opname_items")
 }

@@ -47,6 +47,7 @@ const generateOrderNumber = async (storeId, model) => {
     sale: prisma.sale,
     purchase: prisma.purchase,
     mutation: prisma.mutation,
+    stockOpname: prisma.stockOpname,
   };
   const prismaModel = modelMap[model];
   if (!prismaModel)
@@ -87,8 +88,25 @@ const generateStoreCode = async (name) => {
   return code;
 };
 
+const generateOpnameNumber = async () => {
+  const lastOpname = await prisma.stockOpname.findFirst({
+    where: { orderNumber: { startsWith: 'SO-' } },
+    orderBy: { orderNumber: 'desc' },
+  });
+
+  let nextNumber = 1;
+  if (lastOpname) {
+    const lastNumber = parseInt(lastOpname.orderNumber.split('-')[1], 10);
+    if (!isNaN(lastNumber)) nextNumber = lastNumber + 1;
+  }
+
+  return `SO-${String(nextNumber).padStart(3, '0')}`;
+};
+
+
 module.exports = {
   generateProductCode,
   generateOrderNumber,
   generateStoreCode,
+  generateOpnameNumber,
 };

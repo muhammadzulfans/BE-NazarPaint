@@ -172,22 +172,25 @@ model PurchaseItem {
 // ==================== MUTASI STOK ====================
 
 model Mutation {
-  id          String   @id @default(cuid())
-  fromStoreId String // cabang asal
-  toStoreId   String // cabang tujuan
-  userId      String // yang melakukan mutasi
+  id          String         @id @default(cuid())
+  orderNumber String?        @unique
+  fromStoreId String
+  toStoreId   String
+  userId      String
+  status      String         @default("PENDING") // NEW: "PENDING" | "ON_GOING" | "RECEIVED"
   note        String?
-  orderNumber String?  @unique // nomor order (opsional)
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  date        DateTime       @default(now())
+  sentAt      DateTime?
+  receivedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  fromStore  Store          @relation("MutationStoreFrom", fields: [fromStoreId], references: [id])
-  toStore    Store          @relation("MutationStoreTo", fields: [toStoreId], references: [id])
-  userFrom   User           @relation("MutationFrom", fields: [userId], references: [id])
-  userTo     User?          @relation("MutationTo", fields: [receivedBy], references: [id])
-  receivedBy String? // yang menerima mutasi (opsional)
-  items      MutationItem[]
+  fromStore   Store          @relation("MutationStoreFrom", fields: [fromStoreId], references: [id])
+  toStore     Store          @relation("MutationStoreTo", fields: [toStoreId], references: [id])
+  userFrom    User           @relation("MutationFrom", fields: [userId], references: [id])
+  userTo      User?          @relation("MutationTo", fields: [receivedBy], references: [id])
+  receivedBy  String?
+  items       MutationItem[]
 
   @@map("mutations")
 }

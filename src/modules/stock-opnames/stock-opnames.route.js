@@ -21,12 +21,19 @@ router.post(
   authorize("OWNER", "KARYAWAN"),
   controller.create,
 );
+router.put(
+  "/:id",
+  authenticate,
+  authorize("OWNER", "KARYAWAN"),
+  controller.update,
+);
+
 router.patch(
   "/:id/selesai",
   authenticate,
   authorize("OWNER"),
   controller.selesai,
 );
-router.delete("/:id", authenticate, authorize("OWNER"), controller.remove);
+// router.delete("/:id", authenticate, authorize("OWNER"), controller.remove);
 
 module.exports = router;

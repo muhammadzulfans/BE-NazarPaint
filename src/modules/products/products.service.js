@@ -160,7 +160,7 @@ const create = async (body) => {
 
 // code TIDAK boleh diubah lagi setelah create (read-only)
 const update = async (id, body) => {
-  const { code, name, type, hexColor, basePrice, sellPrice, unit } = body;
+  const { code, name, type, hexColor, basePrice, sellPrice, unit, icon } = body;
 
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) throw { statusCode: 404, message: 'Produk tidak ditemukan' };
@@ -173,6 +173,7 @@ const update = async (id, body) => {
     basePrice: basePrice ?? product.basePrice,
     sellPrice: sellPrice ?? product.sellPrice,
     unit: unit ?? product.unit,
+    icon: icon ?? product.icon,
   });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(', ') };
 

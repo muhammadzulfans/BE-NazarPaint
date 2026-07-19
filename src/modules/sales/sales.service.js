@@ -85,7 +85,8 @@ const getAll = async ({
                 unit: true,
                 hexColor: true,
                 basePrice: true,
-                hexColor: true, // tambah hexColor
+                hexColor: true,
+                icon: true, // tambah hexColor
               }, // tambah color
             },
           },

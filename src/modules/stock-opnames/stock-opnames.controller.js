@@ -68,5 +68,11 @@ const remove = async (req, res, next) => {
     next(err);
   }
 };
+const update = async (req, res, next) => {
+  try {
+    const data = await service.update(req.params.id, req.body);
+    res.json({ success: true, message: 'Stock opname berhasil diupdate', data });
+  } catch (err) { next(err); }
+};
 
-module.exports = { getAll, getById, create, selesai, remove };
+module.exports = { getAll, getById, create, selesai, remove, update };

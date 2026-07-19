@@ -69,6 +69,7 @@ model Product {
   code      String // kode barang, contoh: 515, 210
   name      String // nama barang, contoh: Silver, Red
   type      String // "GLOSS" | "PRO" | "SUPER" | "ACCESSORIES"
+  icon      String? 
   hexColor  String? // hex code, contoh: "#FFFFFF" — NEW
   basePrice Int // harga pokok (Rp)
   sellPrice Int // harga jual (Rp)

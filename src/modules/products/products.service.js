@@ -124,7 +124,7 @@ const getById = async (id) => {
 
 // code TIDAK lagi diambil dari body — di-generate otomatis berdasarkan type
 const create = async (body) => {
-  const { code, name, type, hexColor, basePrice, sellPrice, unit } = body;
+  const { code, name, type, hexColor, basePrice, sellPrice, unit, icon } = body;
 
   const errors = validate({ code, name, type, hexColor, basePrice, sellPrice, unit });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(', ') };
@@ -150,6 +150,7 @@ const create = async (body) => {
       name: name.trim(),
       type,
       hexColor: hexColor?.trim() || null,
+      icon: icon?.trim() || null,
       basePrice: parseInt(basePrice),
       sellPrice: parseInt(sellPrice),
       unit: unit?.trim() || 'Kg',
@@ -202,6 +203,7 @@ const update = async (id, body) => {
       ...(basePrice && { basePrice: parseInt(basePrice) }),
       ...(sellPrice && { sellPrice: parseInt(sellPrice) }),
       ...(unit && { unit: unit.trim() }),
+      ...(icon && { icon: icon.trim() }),
     },
   });
 };

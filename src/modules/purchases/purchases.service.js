@@ -69,7 +69,7 @@ const getAll = async ({
 
   const where = {
     ...(storeId && { storeId }),
-    ...(status && { status }),
+    ...(status && { status: { in: status.split(",") } }),
     ...(startDate &&
       endDate && {
         date: {

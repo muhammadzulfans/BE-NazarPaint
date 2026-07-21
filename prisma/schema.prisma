@@ -230,8 +230,8 @@ model StockOpnameItem {
   opnameId   String
   productId  String
   stokSistem Float
-  stokFisik  Float
-  selisih    Float
+  stokFisik  Float?
+  selisih    Float?
   catatan    String?
 
   opname  StockOpname @relation(fields: [opnameId], references: [id], onDelete: Cascade)

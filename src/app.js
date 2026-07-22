@@ -15,6 +15,8 @@ const swaggerSpec = require('./docs/swagger');
 const stockOpnameRoute = require('./modules/stock-opnames/stock-opnames.route');
 const dashBoardRoute = require('./modules/dashboard/dashboard.route');
 
+const predictionRoute = require('./modules/predictions/predictions.route');
+
 const path = require('path');
 
 const app = express();
@@ -44,6 +46,8 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { background-color: #EAB308 }' // warna kuning sesuai UI
 }));
 app.use('/api/dashboard', dashBoardRoute);
+// route endpoint predictions
+app.use('/api/predictions', predictionRoute);
 // app.use('/api/users', userRoute); // ← uncomment kalau sudah dibuat
 
 // 404 handler

@@ -1,24 +1,39 @@
-const { createClient } = require('@supabase/supabase-js');
+const axios = require('axios');
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
-);
+const FLASK_URL = 'http://localhost:5000/predict';
 
-const getPrediksiStok = async ({ cabang, bulan }) => {
-    let query = supabase.from('prediksi_stok').select('*');
+async function generateAndSavePrediction(cabang, kodeCat) {
+    try {
+        let formattedKode = String(kodeCat);
+        if (!formattedKode.includes('.')) {
+            formattedKode = `${formattedKode}.0`;
+        }
 
-    if (cabang) {
-        query = query.eq('cabang', cabang);
+        const response = await axios.post(FLASK_URL, {
+            cabang: cabang,
+            kode_cat: formattedKode
+        });
+
+        // Menangkap hasil prediksi penjualan dari Flask
+        const { prediksi_penjualan, status } = response.data;
+
+        if (status !== 'success') {
+            throw new Error("Gagal mendapatkan hasil prediksi dari layanan AI.");
+        }
+
+        return {
+            cabang: cabang,
+            kode_cat: String(kodeCat),
+            prediksi_penjualan: prediksi_penjualan,
+            target_bulan: "2026-03"
+        };
+
+    } catch (error) {
+        console.error("Error dalam predictions.service.js:", error.response?.data || error.message);
+        throw error;
     }
-    if (bulan) {
-        query = query.eq('target_month', bulan);
-    }
+}
 
-    const { data, error } = await query;
-    if (error) throw { statusCode: 500, message: error.message };
-
-    return data;
+module.exports = {
+    generateAndSavePrediction
 };
-
-module.exports = { getPrediksiStok };

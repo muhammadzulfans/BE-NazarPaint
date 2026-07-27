@@ -12,6 +12,7 @@ const {
   deleteMyAvatar,
   uploadUserAvatar,
   deleteUserAvatar,
+  updateStatus,
 } = require('./users.controller');
 
 const router = Router();
@@ -275,6 +276,35 @@ router.patch('/:id/avatar', authorize('OWNER'), upload.single('avatar'), uploadU
  *         description: Foto profile berhasil dihapus
  */
 router.delete('/:id/avatar', authorize('OWNER'), deleteUserAvatar);
+
+/**
+ * @swagger
+ * /api/users/{id}/status:
+ *   patch:
+ *     summary: Update status user (OWNER only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, ACTIVE, INACTIVE, RESIGN]
+ *     responses:
+ *       200:
+ *         description: Status user berhasil diperbarui
+ */
+router.patch('/:id/status', authorize('OWNER'), updateStatus);
 
 /**
  * @swagger

@@ -22,6 +22,7 @@ const userSelect = {
   jabatan: true,
   role: true,
   avatar: true,
+  status: true,
   createdAt: true,
   updatedAt: true,
   stores: {
@@ -80,52 +81,48 @@ const getById = async (id) => {
 };
 
 const create = async ({ name, email, password, jabatan, role, storeId }) => {
-  const errors = [];
-
-  if (!name || name.trim().length < 2) errors.push("Nama minimal 2 karakter");
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    errors.push("Format email tidak valid");
+  if (!name || name.trim().length < 2)
+    throw { statusCode: 400, message: 'Nama minimal 2 karakter' };
+  if (!email || !email.includes('@'))
+    throw { statusCode: 400, message: 'Email tidak valid' };
   if (!password || password.length < 6)
-    errors.push("Password minimal 6 karakter");
-  if (role && !["OWNER", "KARYAWAN"].includes(role))
-    errors.push("Role harus OWNER atau KARYAWAN");
-  if (role === "KARYAWAN" && !storeId)
-    errors.push("Karyawan wajib memiliki cabang toko");
-
-  if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
+    throw { statusCode: 400, message: 'Password minimal 6 karakter' };
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw { statusCode: 409, message: "Email sudah terdaftar" };
+  if (existing) throw { statusCode: 409, message: 'Email sudah terdaftar' };
 
-  if (storeId) {
-    const store = await prisma.store.findUnique({ where: { id: storeId } });
-    if (!store)
-      throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
-  }
-
-  const hashed = await hashPassword(password);
-
-  const user = await prisma.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: {
-        name: name.trim(),
-        email: email.trim(),
-        password: hashed,
-        jabatan: jabatan || "KARYAWAN",
-        role: role || "KARYAWAN",
-        avatar: "uploads/avatars/default.jpg",
-      },
-      select: userSelect,
-    });
-
-    if (storeId) {
-      await tx.userStore.create({ data: { userId: newUser.id, storeId } });
-    }
-
-    return newUser;
+  const hashedPassword = await hashPassword(password);
+  
+  const user = await prisma.user.create({
+    data: {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password: hashedPassword,
+      jabatan: jabatan?.trim() || 'KASIR',
+      role: role || 'KARYAWAN',
+      status: 'PENDING',   // selalu PENDING saat create
+    },
   });
 
-  return user;
+  // Auto-assign ke cabang kalau storeId dikirim
+  if (storeId) {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) throw { statusCode: 404, message: 'Cabang tidak ditemukan' };
+
+    await prisma.userStore.create({
+      data: { userId: user.id, storeId },
+    });
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    jabatan: user.jabatan,
+    role: user.role,
+    status: user.status,
+    storeId: storeId || null,
+  };
 };
 
 const update = async (
@@ -175,6 +172,43 @@ const update = async (
   });
 
   return updated;
+};
+
+const updateStatus = async (id, status) => {
+  const VALID_STATUS = ['PENDING', 'ACTIVE', 'INACTIVE', 'RESIGN'];
+
+  if (!VALID_STATUS.includes(status))
+    throw { statusCode: 400, message: `Status tidak valid. Pilihan: ${VALID_STATUS.join(', ')}` };
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw { statusCode: 404, message: 'User tidak ditemukan' };
+
+  if (user.role === 'OWNER')
+    throw { statusCode: 400, message: 'Status OWNER tidak bisa diubah' };
+
+  // Validasi transisi status yang masuk akal
+  const validTransitions = {
+    PENDING:  ['ACTIVE'],
+    ACTIVE:   ['INACTIVE', 'RESIGN'],
+    INACTIVE: ['ACTIVE', 'RESIGN'],
+    RESIGN:   [], // resign tidak bisa balik
+  };
+
+  if (!validTransitions[user.status].includes(status)) {
+    throw {
+      statusCode: 400,
+      message: `Tidak bisa mengubah status dari ${user.status} ke ${status}`,
+    };
+  }
+
+  return prisma.user.update({
+    where: { id },
+    data: { status },
+    select: {
+      id: true, name: true, email: true,
+      jabatan: true, role: true, status: true,
+    },
+  });
 };
 
 const remove = async (id, currentUserId) => {
@@ -239,4 +273,5 @@ module.exports = {
   remove,
   updateAvatar,
   deleteAvatar,
+  updateStatus,
 };

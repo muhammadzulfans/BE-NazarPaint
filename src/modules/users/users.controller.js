@@ -45,6 +45,16 @@ const update = async (req, res, next) => {
   }
 };
 
+const updateStatus = async (req, res, next) => {
+  try {
+    const data = await usersService.updateStatus(req.params.id, req.body.status);
+    res.json({ success: true, message: `Status berhasil diubah menjadi ${data.status}`, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 const remove = async (req, res, next) => {
   try {
     await usersService.remove(req.params.id, req.user.userId);
@@ -120,4 +130,5 @@ module.exports = {
   deleteMyAvatar,
   uploadUserAvatar,
   deleteUserAvatar,
+  updateStatus,
 };

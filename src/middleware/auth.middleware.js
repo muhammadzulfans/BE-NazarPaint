@@ -3,24 +3,22 @@ const { verifyToken } = require('../utils/jwt.util');
 // Cek apakah user sudah login
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Tidak terautentikasi. Harap login terlebih dahulu' 
+    return res.status(401).json({
+      success: false,
+      message: 'Tidak terautentikasi. Harap login terlebih dahulu'
     });
   }
 
   const token = authHeader.split(' ')[1];
-
   try {
     const payload = verifyToken(token);
-    req.user = payload; // { userId, email, role, jabatan, storeId }
+    req.user = payload;
     next();
   } catch (err) {
-    return res.status(err.statusCode || 401).json({ 
-      success: false, 
-      message: err.message || 'Token tidak valid' 
+    return res.status(err.statusCode || 401).json({
+      success: false,
+      message: err.message || 'Token tidak valid'
     });
   }
 };

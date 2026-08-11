@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const { hashPassword } = require("../../utils/hash.util");
+const { assertStoreActive } = require("../../utils/store.util");
 const fs = require("fs");
 const path = require("path");
 
@@ -27,7 +28,7 @@ const userSelect = {
   updatedAt: true,
   stores: {
     include: {
-      store: { select: { id: true, name: true } },
+      store: { select: { id: true, name: true, isActive: true, deletedAt: true } },
     },
   },
 };
@@ -91,8 +92,13 @@ const create = async ({ name, email, password, jabatan, role, storeId }) => {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw { statusCode: 409, message: 'Email sudah terdaftar' };
 
+  // Pastikan cabang aktif sebelum assign user baru
+  if (storeId) {
+    await assertStoreActive(storeId);
+  }
+
   const hashedPassword = await hashPassword(password);
-  
+
   const user = await prisma.user.create({
     data: {
       name: name.trim(),
@@ -160,6 +166,9 @@ const update = async (
     });
 
     if (storeId) {
+      // Pastikan cabang aktif sebelum re-assign user
+      await assertStoreActive(storeId);
+
       const store = await tx.store.findUnique({ where: { id: storeId } });
       if (!store)
         throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };

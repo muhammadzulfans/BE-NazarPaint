@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { assertStoreActive } = require('../../utils/store.util');
 
 // Get semua stok — bisa filter by storeId, type, search, dan date range
 const getAll = async ({ storeId, type, search, startDate, endDate, page = 1, limit = 10 } = {}) => {
@@ -85,6 +86,9 @@ const upsertStock = async ({ productId, storeId, quantity, mode = 'SET' }) => {
   if (!storeId) throw { statusCode: 400, message: 'storeId wajib diisi' };
   if (quantity === undefined || isNaN(quantity) || quantity < 0)
     throw { statusCode: 400, message: 'Quantity harus berupa angka positif' };
+
+  // Pastikan cabang aktif sebelum adjust stok manual
+  await assertStoreActive(storeId);
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw { statusCode: 404, message: 'Produk tidak ditemukan' };

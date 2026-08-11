@@ -5,6 +5,7 @@ const {
   validateRegister,
   validateLogin,
 } = require("../../utils/validate.util");
+const { assertStoreActive } = require("../../utils/store.util");
 
 const register = async ({ name, email, password, jabatan, role, storeId }) => {
   const errors = validateRegister({ name, email, password, role });
@@ -18,9 +19,8 @@ const register = async ({ name, email, password, jabatan, role, storeId }) => {
   }
 
   if (storeId) {
-    const store = await prisma.store.findUnique({ where: { id: storeId } });
-    if (!store)
-      throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
+    // Pastikan cabang aktif sebelum assign user baru
+    await assertStoreActive(storeId);
   }
 
   const hashed = await hashPassword(password);
@@ -64,7 +64,10 @@ const login = async ({ email, password }) => {
   const user = await prisma.user.findUnique({
     where: { email },
     include: {
-      stores: { select: { storeId: true } },
+      stores: {
+        where: { store: { deletedAt: null } }, // hanya ambil cabang aktif untuk operasional
+        select: { storeId: true },
+      },
     },
   });
 

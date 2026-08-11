@@ -1,13 +1,18 @@
 const prisma = require("../../lib/prisma");
 const { generateStoreCode } = require("../../utils/generateCode.util");
 
-const getAll = async ({ search, page = 1, limit = 10 } = {}) => {
+const getAll = async ({ search, page = 1, limit = 10, includeInactive = false } = {}) => {
   const skip = (page - 1) * limit;
 
   const where = {
     ...(search && {
-      OR: [{ name: { contains: search } }, { address: { contains: search } }],
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { address: { contains: search, mode: "insensitive" } },
+        { code: { contains: search, mode: "insensitive" } },
+      ],
     }),
+    ...(!includeInactive && { deletedAt: null }),
   };
 
   const [stores, total] = await Promise.all([
@@ -34,9 +39,12 @@ const getAll = async ({ search, page = 1, limit = 10 } = {}) => {
   };
 };
 
-const getById = async (id) => {
-  const store = await prisma.store.findUnique({
-    where: { id },
+const getById = async (id, { includeInactive = false } = {}) => {
+  const store = await prisma.store.findFirst({
+    where: {
+      id,
+      ...(!includeInactive && { deletedAt: null }),
+    },
     include: {
       users: {
         include: {
@@ -64,26 +72,35 @@ const create = async ({ name, address }) => {
     throw { statusCode: 400, message: "Nama toko minimal 2 karakter" };
   }
 
+  // Cek duplikat nama pada store yang masih aktif
   const existing = await prisma.store.findFirst({
-    where: { name: name.trim() },
+    where: { name: name.trim(), deletedAt: null },
   });
   if (existing) throw { statusCode: 409, message: "Nama toko sudah ada" };
 
   const code = await generateStoreCode(name.trim());
 
   return prisma.store.create({
-    data: { name: name.trim(), code, address: address?.trim() || null },
+    data: {
+      name: name.trim(),
+      code,
+      address: address?.trim() || null,
+      isActive: true,
+      deletedAt: null,
+    },
   });
 };
 
 // code TIDAK bisa diubah lewat update — fully locked
 const update = async (id, { name, address }) => {
-  const store = await prisma.store.findUnique({ where: { id } });
+  const store = await prisma.store.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
 
   if (name && name.trim() !== store.name) {
     const existing = await prisma.store.findFirst({
-      where: { name: name.trim() },
+      where: { name: name.trim(), deletedAt: null, NOT: { id } },
     });
     if (existing) throw { statusCode: 409, message: "Nama toko sudah ada" };
   }
@@ -98,31 +115,67 @@ const update = async (id, { name, address }) => {
   });
 };
 
+// SOFT DELETE — data transaksi tetap ada karena storeId tidak berubah
 const remove = async (id) => {
   const store = await prisma.store.findUnique({
     where: { id },
-    include: {
-      _count: {
-        select: { stocks: true, salesFrom: true, purchasesFrom: true },
-      },
-    },
   });
 
   if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
+  if (store.deletedAt) {
+    throw { statusCode: 400, message: "Cabang toko sudah dihapus sebelumnya" };
+  }
 
-  if (store._count.salesFrom > 0 || store._count.purchasesFrom > 0) {
+  return prisma.store.update({
+    where: { id },
+    data: {
+      isActive: false,
+      deletedAt: new Date(),
+    },
+  });
+};
+
+// RESTORE — kembalikan cabang yang di-soft-delete
+const restore = async (id) => {
+  const store = await prisma.store.findUnique({ where: { id } });
+  if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
+  if (!store.deletedAt) {
+    throw { statusCode: 400, message: "Cabang toko masih aktif" };
+  }
+
+  // Cek apakah nama bentrok dengan store aktif lain
+  const conflict = await prisma.store.findFirst({
+    where: { name: store.name, deletedAt: null, NOT: { id } },
+  });
+  if (conflict) {
     throw {
-      statusCode: 400,
-      message: "Tidak bisa hapus toko yang sudah memiliki transaksi",
+      statusCode: 409,
+      message: `Tidak bisa restore, nama "${store.name}" sudah dipakai cabang aktif lain`,
     };
   }
 
-  return prisma.store.delete({ where: { id } });
+  // Cek apakah code bentrok dengan store aktif lain
+  const codeConflict = await prisma.store.findFirst({
+    where: { code: store.code, deletedAt: null, NOT: { id } },
+  });
+  if (codeConflict) {
+    throw {
+      statusCode: 409,
+      message: `Tidak bisa restore, kode "${store.code}" sudah dipakai cabang aktif lain`,
+    };
+  }
+
+  return prisma.store.update({
+    where: { id },
+    data: { isActive: true, deletedAt: null },
+  });
 };
 
 const assignUser = async (storeId, userId) => {
-  const store = await prisma.store.findUnique({ where: { id: storeId } });
-  if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
+  const store = await prisma.store.findFirst({
+    where: { id: storeId, deletedAt: null },
+  });
+  if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan atau sudah tidak aktif" };
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw { statusCode: 404, message: "User tidak ditemukan" };
@@ -154,6 +207,7 @@ module.exports = {
   create,
   update,
   remove,
+  restore,
   assignUser,
   unassignUser,
 };

@@ -226,13 +226,60 @@ const remove = async (id, currentUserId) => {
     throw { statusCode: 400, message: "Tidak bisa menghapus akun sendiri" };
   }
 
-  const user = await prisma.user.findUnique({ where: { id } });
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          sales: true,
+          purchases: true,
+          mutationsFrom: true,
+          mutationsTo: true,
+          stockOpnames: true,
+        }
+      }
+    }
+  });
+
   if (!user) throw { statusCode: 404, message: "User tidak ditemukan" };
+
+  // Cek apakah user punya transaksi
+  const hasTransactions =
+      user._count.sales > 0 ||
+      user._count.purchases > 0 ||
+      user._count.mutationsFrom > 0 ||
+      user._count.mutationsTo > 0;
+
+  if (hasTransactions) {
+    throw {
+      statusCode: 400,
+      message: "Tidak bisa menghapus user yang sudah memiliki transaksi (penjualan, pembelian, atau mutasi)"
+    };
+  }
 
   // Hapus file avatar kalau bukan default
   deleteOldAvatar(user.avatar);
 
-  await prisma.user.delete({ where: { id } });
+  // Hapus semua relasi yang tersisa, baru hapus user
+  await prisma.$transaction(async (tx) => {
+    // Hapus stock opname items terkait
+    await tx.stockOpnameItem.deleteMany({
+      where: { opname: { userId: id } }
+    });
+
+    // Hapus stock opnames
+    await tx.stockOpname.deleteMany({
+      where: { userId: id }
+    });
+
+    // Hapus user stores (pivot table)
+    await tx.userStore.deleteMany({
+      where: { userId: id }
+    });
+
+    // Baru hapus user
+    await tx.user.delete({ where: { id } });
+  });
 };
 
 // ─── AVATAR ───────────────────────────────────────────────────────────────────

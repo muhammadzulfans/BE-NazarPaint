@@ -11,7 +11,7 @@ const getMe = async (req, res, next) => {
 
 const getAll = async (req, res, next) => {
   try {
-    const data = await usersService.getAll(req.query);
+    const data = await usersService.getAll(req.query, req.user.userId);
     res.json({ success: true, ...data });
   } catch (err) {
     next(err);

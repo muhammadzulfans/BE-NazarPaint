@@ -34,10 +34,11 @@ const userSelect = {
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-const getAll = async ({ search, role, page = 1, limit = 10 } = {}) => {
+const getAll = async ({ search, role, page = 1, limit = 10 } = {}, excludeUserId) => {
   const skip = (page - 1) * limit;
 
   const where = {
+    ...(excludeUserId && { id: { not: excludeUserId } }),
     ...(role && { role }),
     ...(search && {
       OR: [

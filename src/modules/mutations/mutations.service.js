@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const { generateOrderNumber } = require("../../utils/generateCode.util");
+const { assertStoreActive } = require("../../utils/store.util");
 
 const DEFAULT_COLORS = {
   GLOSS: "#FFD700",
@@ -152,6 +153,10 @@ const create = async ({
 }) => {
   const errors = validate({ fromStoreId, toStoreId, items, date });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
+
+  // Validasi kedua cabang aktif sebelum mutasi baru
+  await assertStoreActive(fromStoreId);
+  await assertStoreActive(toStoreId);
 
   const fromStore = await prisma.store.findUnique({
     where: { id: fromStoreId },

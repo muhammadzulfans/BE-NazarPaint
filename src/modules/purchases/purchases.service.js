@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const { generateOrderNumber } = require("../../utils/generateCode.util");
+const { assertStoreActive } = require("../../utils/store.util");
 
 const VALID_STATUS = ["PENDING", "RECEIVED", "CANCELLED"];
 
@@ -159,6 +160,9 @@ const getById = async (id) => {
 const create = async ({ storeId, userId, items, date }) => {
   const errors = validate({ storeId, items, date });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
+
+  // Validasi cabang aktif sebelum PO baru
+  await assertStoreActive(storeId);
 
   const store = await prisma.store.findUnique({ where: { id: storeId } });
   if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };

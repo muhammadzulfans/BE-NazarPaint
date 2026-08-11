@@ -223,11 +223,16 @@ async function main() {
   const stores = [singkil, balamoa, suradadi];
 
   for (const p of products) {
-    const product = await prisma.product.upsert({
+    // FIX: code tidak unik, jadi pakai findFirst + create
+    let product = await prisma.product.findFirst({
       where: { code: p.code },
-      update: {},
-      create: { ...p },
     });
+
+    if (!product) {
+      product = await prisma.product.create({
+        data: { ...p },
+      });
+    }
 
     // Stok beda-beda tiap cabang — termasuk skenario stok hampir habis & kosong
     for (const store of stores) {

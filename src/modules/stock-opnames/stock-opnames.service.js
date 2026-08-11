@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const { generateOpnameNumber } = require("../../utils/generateCode.util");
+const { assertStoreActive } = require("../../utils/store.util");
 
 const DEFAULT_COLORS = {
   GLOSS: "#FFD700",
@@ -125,6 +126,9 @@ const create = async ({ storeId, userId, items }) => {
       message: "Items opname wajib diisi minimal 1 produk",
     };
 
+  // Pastikan cabang aktif sebelum buat stock opname baru
+  await assertStoreActive(storeId);
+
   const store = await prisma.store.findUnique({ where: { id: storeId } });
   if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
 
@@ -244,25 +248,6 @@ const selesai = async (id, userRole) => {
 
   return applyTransform(updated);
 };
-
-// const remove = async (id, userRole) => {
-//   if (userRole !== "OWNER")
-//     throw {
-//       statusCode: 403,
-//       message: "Hanya OWNER yang bisa menghapus stock opname",
-//     };
-
-//   const opname = await prisma.stockOpname.findUnique({ where: { id } });
-//   if (!opname)
-//     throw { statusCode: 404, message: "Stock opname tidak ditemukan" };
-//   if (opname.status === "SELESAI")
-//     throw {
-//       statusCode: 400,
-//       message: "Stock opname yang sudah selesai tidak bisa dihapus",
-//     };
-
-//   return prisma.stockOpname.delete({ where: { id } });
-// };
 
 // Edit stock opname (hanya boleh saat status DRAFT).
 // Edit TIDAK boleh menambah/menghapus produk — hanya mengisi/mengubah

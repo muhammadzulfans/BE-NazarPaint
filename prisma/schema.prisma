@@ -30,14 +30,15 @@ model User {
 
   @@map("users")
 }
-
 model Store {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
   address   String?
-  code      String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  code      String?   @unique
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   users         UserStore[]
   stocks        Stock[]
@@ -63,6 +64,7 @@ model UserStore {
   @@map("user_stores")
 }
 
+
 // ==================== PRODUCT & STOCK ====================
 
 model Product {
@@ -71,7 +73,7 @@ model Product {
   name      String // nama barang, contoh: Silver, Red
   type      String // "GLOSS" | "PRO" | "SUPER" | "ACCESSORIES"
   icon      String? 
-  hexColor  String? // hex code, contoh: "#FFFFFF" — NEW
+  hexColor  String? // hex code, contoh: "#FFFFFF"
   basePrice Int // harga pokok (Rp)
   sellPrice Int // harga jual (Rp)
   unit      String   @default("Kg") // satuan: Kg, pcs, dll
@@ -87,6 +89,7 @@ model Product {
   @@map("products")
 }
 
+
 // Stok per produk per cabang
 model Stock {
   id        String   @id @default(cuid())
@@ -101,6 +104,7 @@ model Stock {
   @@unique([productId, storeId]) // 1 produk hanya punya 1 record stok per cabang
   @@map("stocks")
 }
+
 
 // ==================== PENJUALAN ====================
 
@@ -122,6 +126,7 @@ model Sale {
   @@map("sales")
 }
 
+
 model SaleItem {
   id         String @id @default(cuid())
   saleId     String
@@ -135,6 +140,7 @@ model SaleItem {
 
   @@map("sale_items")
 }
+
 
 // ==================== BELANJA / PEMBELIAN ====================
 
@@ -179,7 +185,7 @@ model Mutation {
   fromStoreId String
   toStoreId   String
   userId      String
-  status      String         @default("PENDING") // NEW: "PENDING" | "ON_GOING" | "RECEIVED"
+  status      String         @default("PENDING") // "PENDING" | "ON_GOING" | "RECEIVED"
   note        String?
   date        DateTime       @default(now())
   sentAt      DateTime?

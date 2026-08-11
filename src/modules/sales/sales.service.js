@@ -1,5 +1,6 @@
 const prisma = require("../../lib/prisma");
 const { generateOrderNumber } = require("../../utils/generateCode.util");
+const { assertStoreActive } = require("../../utils/store.util");
 
 const DEFAULT_COLORS = {
   GLOSS: "#FFD700",
@@ -85,9 +86,8 @@ const getAll = async ({
                 unit: true,
                 hexColor: true,
                 basePrice: true,
-                hexColor: true,
-                icon: true, // tambah hexColor
-              }, // tambah color
+                icon: true,
+              },
             },
           },
         },
@@ -189,12 +189,15 @@ const getById = async (id) => {
           "#CCCCCC",
       },
     })),
-  }; // tambah itemCount
+  };
 };
 
 const create = async ({ storeId, userId, customerName, items, date }) => {
   const errors = validate({ storeId, items, date });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
+
+  // Validasi cabang aktif sebelum transaksi baru
+  await assertStoreActive(storeId);
 
   const store = await prisma.store.findUnique({ where: { id: storeId } });
   if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
@@ -226,12 +229,12 @@ const create = async ({ storeId, userId, customerName, items, date }) => {
     0,
   );
 
-  const orderNumber = await generateOrderNumber(storeId, "sale"); // ADDED: panggil sebelum transaction
+  const orderNumber = await generateOrderNumber(storeId, "sale");
 
   const sale = await prisma.$transaction(async (tx) => {
     const newSale = await tx.sale.create({
       data: {
-        orderNumber, // ADDED: masukkan ke data create
+        orderNumber,
         storeId,
         userId,
         customerName: customerName?.trim() || null,
@@ -346,7 +349,7 @@ const update = async (id, { items, date, customerName }, userId, userRole) => {
         date: date ? new Date(date) : sale.date,
         ...(customerName !== undefined && {
           customerName: customerName?.trim() || null,
-        }), // NEW
+        }),
         items: {
           create: newItems.map((item) => ({
             productId: item.productId,
@@ -416,7 +419,6 @@ const remove = async (id, userRole) => {
   if (!sale)
     throw { statusCode: 404, message: "Transaksi penjualan tidak ditemukan" };
 
-  // Karyawan tidak bisa hapus transaksi
   if (userRole === "KARYAWAN") {
     throw {
       statusCode: 403,
@@ -425,7 +427,6 @@ const remove = async (id, userRole) => {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Kembalikan stok
     for (const item of sale.items) {
       await tx.stock.update({
         where: {

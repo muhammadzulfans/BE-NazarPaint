@@ -1,4 +1,5 @@
 const prisma = require("../../lib/prisma");
+const crypto = require("crypto");
 const { hashPassword, comparePassword } = require("../../utils/hash.util");
 const { signToken } = require("../../utils/jwt.util");
 const {
@@ -6,7 +7,9 @@ const {
   validateLogin,
 } = require("../../utils/validate.util");
 const { assertStoreActive } = require("../../utils/store.util");
+const { sendOTPEmail } = require("../../utils/email.util");
 
+// ─── REGISTER (TETAP) ───────────────────────────────────────────────────────
 const register = async ({ name, email, password, jabatan, role, storeId }) => {
   const errors = validateRegister({ name, email, password, role });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
@@ -19,7 +22,6 @@ const register = async ({ name, email, password, jabatan, role, storeId }) => {
   }
 
   if (storeId) {
-    // Pastikan cabang aktif sebelum assign user baru
     await assertStoreActive(storeId);
   }
 
@@ -57,6 +59,7 @@ const register = async ({ name, email, password, jabatan, role, storeId }) => {
   return { user, token };
 };
 
+// ─── LOGIN (TETAP) ──────────────────────────────────────────────────────────
 const login = async ({ email, password }) => {
   const errors = validateLogin({ email, password });
   if (errors.length > 0) throw { statusCode: 400, message: errors.join(", ") };
@@ -65,19 +68,17 @@ const login = async ({ email, password }) => {
     where: { email },
     include: {
       stores: {
-        where: { store: { deletedAt: null } }, // hanya ambil cabang aktif untuk operasional
+        where: { store: { deletedAt: null } },
         select: { storeId: true },
       },
     },
   });
 
-  // Pesan umum agar tidak bocorkan info email terdaftar/tidak
   if (!user) throw { statusCode: 401, message: "Email atau password salah" };
 
   const valid = await comparePassword(password, user.password);
   if (!valid) throw { statusCode: 401, message: "Email atau password salah" };
 
-  // ─── Cek status akun ────────────────────────────────────────────────────────
   if (user.role === "KARYAWAN") {
     if (user.status === "PENDING") {
       throw {
@@ -86,7 +87,6 @@ const login = async ({ email, password }) => {
           "Akun Anda belum diaktifkan. Hubungi Owner untuk mengaktifkan akun.",
       };
     }
-
     if (user.status === "INACTIVE") {
       throw {
         statusCode: 403,
@@ -94,7 +94,6 @@ const login = async ({ email, password }) => {
           "Akun Anda sedang dinonaktifkan. Hubungi Owner untuk informasi lebih lanjut.",
       };
     }
-
     if (user.status === "RESIGN") {
       throw {
         statusCode: 403,
@@ -103,7 +102,6 @@ const login = async ({ email, password }) => {
       };
     }
   }
-  // ────────────────────────────────────────────────────────────────────────────
 
   const storeId = user.stores[0]?.storeId || null;
 
@@ -120,4 +118,116 @@ const login = async ({ email, password }) => {
   return { user: { ...userWithoutPassword, storeId }, token };
 };
 
-module.exports = { register, login };
+// ═════════════════════════════════════════════════════════════════════════════
+// BARU: FORGOT PASSWORD, VERIFY OTP, RESET PASSWORD, CHANGE PASSWORD
+// ═════════════════════════════════════════════════════════════════════════════
+
+const forgotPassword = async ({ email }) => {
+  if (!email) throw { statusCode: 400, message: "Email wajib diisi" };
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw { statusCode: 404, message: "Email tidak terdaftar" };
+
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 menit
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { otpCode, otpExpiry },
+  });
+
+  await sendOTPEmail(user.email, otpCode, user.name);
+
+  return {
+    message: "Kode OTP telah dikirim ke email Anda",
+    email: user.email,
+  };
+};
+
+const verifyOTP = async ({ email, otpCode }) => {
+  if (!email || !otpCode) {
+    throw { statusCode: 400, message: "Email dan OTP wajib diisi" };
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user || !user.otpCode) {
+    throw { statusCode: 400, message: "OTP tidak ditemukan, silakan minta ulang" };
+  }
+
+  if (new Date() > user.otpExpiry) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { otpCode: null, otpExpiry: null },
+    });
+    throw { statusCode: 400, message: "OTP sudah expired, silakan minta ulang" };
+  }
+
+  if (user.otpCode !== otpCode) {
+    throw { statusCode: 400, message: "Kode OTP salah" };
+  }
+
+  return { message: "OTP valid", valid: true };
+};
+
+const resetPassword = async ({ email, otpCode, newPassword }) => {
+  if (!email || !otpCode || !newPassword) {
+    throw { statusCode: 400, message: "Email, OTP, dan password baru wajib diisi" };
+  }
+
+  if (newPassword.length < 6) {
+    throw { statusCode: 400, message: "Password minimal 6 karakter" };
+  }
+
+  // Verifikasi OTP dulu
+  await verifyOTP({ email, otpCode });
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  const hashed = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: hashed,
+      otpCode: null,
+      otpExpiry: null,
+      emailVerified: true,
+    },
+  });
+
+  return { message: "Password berhasil direset, silakan login" };
+};
+
+const changePassword = async ({ userId, oldPassword, newPassword }) => {
+  if (!oldPassword || !newPassword) {
+    throw { statusCode: 400, message: "Password lama dan password baru wajib diisi" };
+  }
+
+  if (newPassword.length < 6) {
+    throw { statusCode: 400, message: "Password baru minimal 6 karakter" };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw { statusCode: 404, message: "User tidak ditemukan" };
+
+  const valid = await comparePassword(oldPassword, user.password);
+  if (!valid) throw { statusCode: 400, message: "Password lama salah" };
+
+  const hashed = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashed },
+  });
+
+  return { message: "Password berhasil diubah" };
+};
+
+module.exports = {
+  register,
+  login,
+  forgotPassword,
+  verifyOTP,
+  resetPassword,
+  changePassword,
+};

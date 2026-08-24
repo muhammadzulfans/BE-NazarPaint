@@ -10,16 +10,19 @@ datasource db {
 // ==================== USER & STORE ====================
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  jabatan   String   @default("MANAGEMENT")
-  role      String   @default("KARYAWAN") // "OWNER" | "KARYAWAN"
-  status    String   @default("PENDING")
-  avatar    String?  @default("uploads/avatars/default.jpg")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  password        String
+  jabatan         String    @default("MANAGEMENT")
+  role            String    @default("KARYAWAN")
+  status          String    @default("PENDING")
+  avatar          String?   @default("uploads/avatars/default.jpg")
+  emailVerified   Boolean   @default(false)
+  otpCode         String?
+  otpExpiry       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   stores        UserStore[]
   sales         Sale[]
@@ -30,6 +33,7 @@ model User {
 
   @@map("users")
 }
+
 model Store {
   id        String    @id @default(cuid())
   name      String

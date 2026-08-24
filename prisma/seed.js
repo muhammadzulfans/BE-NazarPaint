@@ -51,7 +51,7 @@ async function main() {
     update: {},
     create: {
       name: "Admin Owner",
-      email: "owner@nazarpaint.com",
+      email: "daffa130903@gmail.com",
       password: hashedPassword,
       jabatan: "MANAGEMENT",
       role: "OWNER",

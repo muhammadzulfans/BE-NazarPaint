@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 
 const sendOTPEmail = async (toEmail, otpCode, userName) => {
   const mailOptions = {
-    from: `"Aplikasi Manajemen" <${process.env.SMTP_USER}>`,
+    from: `"Aplikasi NazarPaint Manajemen" <${process.env.SMTP_USER}>`,
     to: toEmail,
     subject: "Kode OTP Reset Password",
     html: `

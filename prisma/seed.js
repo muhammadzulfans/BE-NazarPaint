@@ -47,11 +47,11 @@ async function main() {
   const hashedPassword = await bcrypt.hash("password123", 10);
 
   const owner = await prisma.user.upsert({
-    where: { email: "owner@nazarpaint.com" },
+    where: { email: "nazarpaint.tegal@gmail.com" },
     update: {},
     create: {
       name: "Admin Owner",
-      email: "daffa130903@gmail.com",
+      email: "nazarpaint.tegal@gmail.com",
       password: hashedPassword,
       jabatan: "MANAGEMENT",
       role: "OWNER",
@@ -59,11 +59,11 @@ async function main() {
   });
 
   const karyawanSingkil = await prisma.user.upsert({
-    where: { email: "singkil@nazarpaint.com" },
+    where: { email: "zulfansmuhammad7@gmail.com" },
     update: {},
     create: {
       name: "Karyawan Singkil",
-      email: "singkil@nazarpaint.com",
+      email: "zulfansmuhammad7@gmail.com",
       password: hashedPassword,
       jabatan: "KASIR",
       role: "KARYAWAN",
@@ -71,11 +71,11 @@ async function main() {
   });
 
   const karyawanBalamoa = await prisma.user.upsert({
-    where: { email: "balamoa@nazarpaint.com" },
+    where: { email: "fan.sport.zull07@gmail.com" },
     update: {},
     create: {
       name: "Karyawan Balamoa",
-      email: "balamoa@nazarpaint.com",
+      email: "fan.sport.zull07@gmail.com",
       password: hashedPassword,
       jabatan: "KASIR",
       role: "KARYAWAN",
@@ -83,11 +83,11 @@ async function main() {
   });
 
   const karyawanSuradadi = await prisma.user.upsert({
-    where: { email: "suradadi@nazarpaint.com" },
+    where: { email: "tukang.kopi1901@gmail.com" },
     update: {},
     create: {
       name: "Karyawan Suradadi",
-      email: "suradadi@nazarpaint.com",
+      email: "tukang.kopi1901@gmail.com",
       password: hashedPassword,
       jabatan: "KASIR",
       role: "KARYAWAN",
@@ -487,10 +487,10 @@ async function main() {
   console.log("🎉 Seeding complete!");
   console.log("");
   console.log("Login info:");
-  console.log("  Owner    → owner@nazarpaint.com / password123");
-  console.log("  Singkil  → singkil@nazarpaint.com / password123");
-  console.log("  Balamoa  → balamoa@nazarpaint.com / password123");
-  console.log("  Suradadi → suradadi@nazarpaint.com / password123");
+  console.log("  Owner    → nazarpaint.tegal@gmail.com / password123");
+  console.log("  Singkil  → zulfansmuhammad7@gmail.com / password123");
+  console.log("  Balamoa  → fan.sport.zull07@gmail.com / password123");
+  console.log("  Suradadi → tukang.kopi1901@gmail.com / password123");
 }
 
 // ==================== MUTATIONS ====================

@@ -40,13 +40,14 @@ const validate = ({ code, name, type, hexColor, basePrice, sellPrice, unit }) =>
 };
 
 const getAll = async ({
-  type,
-  search,
-  startDate,
-  endDate,
-  page = 1,
-  limit = 10,
-} = {}) => {
+                        type,
+                        search,
+                        startDate,
+                        endDate,
+                        page = 1,
+                        limit = 10,
+                        includeInactive,
+                      } = {}) => {
   const skip = (page - 1) * limit;
 
   const where = {
@@ -61,6 +62,7 @@ const getAll = async ({
           lte: new Date(`${endDate}T23:59:59.999Z`),
         },
       }),
+    ...((includeInactive !== "true" && includeInactive !== true) && { isActive: true }),
   };
 
   const [products, total] = await Promise.all([
@@ -229,4 +231,14 @@ const remove = async (id) => {
   return prisma.product.delete({ where: { id } });
 };
 
-module.exports = { getAll, getById, create, update, remove };
+const toggleStatus = async (id) => {
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) throw { statusCode: 404, message: "Produk tidak ditemukan" };
+
+  return prisma.product.update({
+    where: { id },
+    data: { isActive: !product.isActive },
+  });
+};
+
+module.exports = { getAll, getById, create, update, remove, toggleStatus };

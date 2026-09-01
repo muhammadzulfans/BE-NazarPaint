@@ -119,11 +119,21 @@ const update = async (id, { name, address }) => {
 const remove = async (id) => {
   const store = await prisma.store.findUnique({
     where: { id },
+    include: {
+      users: { select: { userId: true } },
+    },
   });
 
   if (!store) throw { statusCode: 404, message: "Cabang toko tidak ditemukan" };
   if (store.deletedAt) {
     throw { statusCode: 400, message: "Cabang toko sudah dihapus sebelumnya" };
+  }
+
+  if (store.users.length > 0) {
+    throw {
+      statusCode: 400,
+      message: `Tidak bisa menonaktifkan toko ini karena masih memiliki ${store.users.length} karyawan ter-assign. Pindahkan atau lepas assignment karyawan terlebih dahulu.`,
+    };
   }
 
   return prisma.store.update({

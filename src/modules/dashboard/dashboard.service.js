@@ -45,18 +45,33 @@ function getRangeLastMonth() {
 }
 
 // Buat filter storeId: OWNER bisa opsional, KARYAWAN wajib sesuai cabang sendiri
-function buildStoreFilter(user, storeId) {
+async function buildStoreFilter(user, storeId) {
   if (user.role === "OWNER") {
     return storeId ? { storeId } : {};
   }
-  // KARYAWAN ? storeId sudah ada langsung dari JWT payload
-  const userStoreId = user.storeId; // fix: ambil dari payload langsung
+  const userStoreId = user.storeId;
   if (!userStoreId) {
     throw {
       statusCode: 403,
-      message: "Akun karyawan belum di-assign ke cabang manapun",
+      code: "NO_STORE_ASSIGNED",
+      message: "Akun karyawan belum di-assign ke cabang manapun. Hubungi Admin.",
     };
   }
+
+  // BARU: pastikan toko yang di-assign masih aktif
+  const store = await prisma.store.findUnique({
+    where: { id: userStoreId },
+    select: { id: true, isActive: true, deletedAt: true },
+  });
+
+  if (!store || !store.isActive || store.deletedAt) {
+    throw {
+      statusCode: 403,
+      code: "STORE_INACTIVE",
+      message: "Toko cabang Anda sudah tidak aktif. Hubungi Admin untuk penempatan ulang.",
+    };
+  }
+
   return { storeId: userStoreId };
 }
 
@@ -82,7 +97,7 @@ async function getProductSummary() {
 // ??? 2. Ringkasan Penjualan ???
 
 async function getSalesSummary(user, storeId) {
-  const storeFilter = buildStoreFilter(user, storeId);
+  const storeFilter = await buildStoreFilter(user, storeId);
   const { start: todayStart, end: todayEnd } = getRangeToday();
   const { start: weekStart, end: weekEnd } = getRangeThisWeek();
   const { start: monthStart, end: monthEnd } = getRangeThisMonth();
@@ -126,7 +141,7 @@ async function getSalesSummary(user, storeId) {
 // ??? 3. Penjualan Mingguan (7 hari terakhir) ???
 
 async function getWeeklySalesTrend(user, storeId) {
-  const storeFilter = buildStoreFilter(user, storeId);
+  const storeFilter = await buildStoreFilter(user, storeId);
 
   const days = [];
   for (let i = 6; i >= 0; i--) {
@@ -159,7 +174,7 @@ async function getWeeklySalesTrend(user, storeId) {
 // ??? 4. Penjualan Bulanan (12 bulan terakhir) ???
 
 async function getMonthlySalesTrend(user, storeId) {
-  const storeFilter = buildStoreFilter(user, storeId);
+  const storeFilter = await buildStoreFilter(user, storeId);
   const now = new Date();
 
   const months = [];
@@ -194,7 +209,7 @@ async function getMonthlySalesTrend(user, storeId) {
 // ??? 5. Rekap Akhir Bulan ???
 
 async function getEndOfMonthRecap(user, storeId) {
-  const storeFilter = buildStoreFilter(user, storeId);
+  const storeFilter = await buildStoreFilter(user, storeId);
   const { start: thisMonthStart, end: thisMonthEnd } = getRangeThisMonth();
   const { start: lastMonthStart, end: lastMonthEnd } = getRangeLastMonth();
 
@@ -327,7 +342,7 @@ async function getEndOfMonthRecap(user, storeId) {
 // FIX: hanya query store yang AKTIF (deletedAt: null) karena stok menipis
 // di cabang yang sudah dihapus tidak relevan secara operasional.
 async function getLowStockAlert(user, storeId, threshold = 10) {
-  const storeFilter = buildStoreFilter(user, storeId);
+  const storeFilter = await buildStoreFilter(user, storeId);
 
   // Cabang yang relevan — hanya yang AKTIF
   const stores = await prisma.store.findMany({
@@ -433,7 +448,7 @@ async function getStoreSummary() {
 // ??? 8. Rekap Stok Bulan Ini ???
 
 async function getStockRecap(user, storeId) {
-  const storeFilter = buildStoreFilter(user, storeId);
+  const storeFilter = await buildStoreFilter(user, storeId);
   const { start: monthStart, end: monthEnd } = getRangeThisMonth();
 
   const [

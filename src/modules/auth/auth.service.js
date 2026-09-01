@@ -67,9 +67,12 @@ const login = async ({ email, password }) => {
   const user = await prisma.user.findUnique({
     where: { email },
     include: {
+      // BARU: ambil SEMUA relasi UserStore (tanpa filter deletedAt),
+      // biar bisa dibedakan "belum pernah di-assign" vs "toko-nya nonaktif"
       stores: {
-        where: { store: { deletedAt: null } },
-        select: { storeId: true },
+        include: {
+          store: { select: { id: true, isActive: true, deletedAt: true } },
+        },
       },
     },
   });
@@ -101,9 +104,35 @@ const login = async ({ email, password }) => {
           "Akun Anda sudah tidak aktif (resign). Hubungi Owner jika ada kesalahan.",
       };
     }
+
+    // BARU: cek status penempatan toko
+    if (user.stores.length === 0) {
+      // Kasus 1: belum pernah di-assign ke toko manapun sama sekali
+      throw {
+        statusCode: 403,
+        code: "NO_STORE_ASSIGNED",
+        message: "Akun Anda belum di-assign ke cabang manapun. Hubungi Owner untuk penempatan ke cabang toko.",
+      };
+    }
+
+    const activeStore = user.stores.find(
+        (us) => us.store.isActive && !us.store.deletedAt
+    );
+
+    if (!activeStore) {
+      // Kasus 2: pernah di-assign, tapi tokonya sekarang nonaktif/dihapus
+      throw {
+        statusCode: 403,
+        code: "STORE_INACTIVE",
+        message: "Toko cabang Anda sudah tidak aktif. Hubungi Owner untuk penempatan ke cabang lain.",
+      };
+    }
   }
 
-  const storeId = user.stores[0]?.storeId || null;
+  const storeId =
+      user.role === "KARYAWAN"
+          ? user.stores.find((us) => us.store.isActive && !us.store.deletedAt)?.storeId
+          : null;
 
   const token = signToken({
     userId: user.id,

@@ -2,7 +2,7 @@ const productService = require("./products.service");
 
 const getAll = async (req, res, next) => {
   try {
-    const { type, search, startDate, endDate, page, limit } = req.query;
+    const { type, search, startDate, endDate, page, limit, includeInactive } = req.query;
     const data = await productService.getAll({
       type,
       search,
@@ -10,6 +10,7 @@ const getAll = async (req, res, next) => {
       endDate,
       page,
       limit,
+      includeInactive,
     });
     res.json({ success: true, ...data });
   } catch (err) {
@@ -55,4 +56,17 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, remove };
+const toggleStatus = async (req, res, next) => {
+  try {
+    const data = await productService.toggleStatus(req.params.id);
+    res.json({
+      success: true,
+      message: data.isActive ? "Produk berhasil diaktifkan" : "Produk berhasil dinonaktifkan",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, remove, toggleStatus };

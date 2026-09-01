@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const FLASK_URL = 'http://localhost:5000/predict';
+const FLASK_URL = 'https://flask-app-arima.vercel.app/predict';
 
 async function generateAndSavePrediction(cabang, kodeCat) {
     try {

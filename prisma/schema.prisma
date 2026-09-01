@@ -81,6 +81,7 @@ model Product {
   basePrice Int // harga pokok (Rp)
   sellPrice Int // harga jual (Rp)
   unit      String   @default("Kg") // satuan: Kg, pcs, dll
+  isActive  Boolean  @default(true)   // BARU
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

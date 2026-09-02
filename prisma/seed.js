@@ -16,6 +16,7 @@ async function main() {
     update: {},
     create: {
       id: "store-singkil",
+      code: "SKL",
       name: "Toko Cabang Singkil",
       address: "Singkil",
     },
@@ -26,6 +27,7 @@ async function main() {
     update: {},
     create: {
       id: "store-balamoa",
+      code: "BLM",
       name: "Toko Cabang Balamoa",
       address: "Balamoa",
     },
@@ -36,6 +38,7 @@ async function main() {
     update: {},
     create: {
       id: "store-suradadi",
+      code: "SRD",
       name: "Toko Cabang Suradadi",
       address: "Suradadi",
     },
